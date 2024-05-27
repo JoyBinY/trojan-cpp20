@@ -22,10 +22,10 @@
 
 #include <ctime>
 #include <memory>
-#include <boost/asio/io_context.hpp>
-#include <boost/asio/ip/udp.hpp>
-#include <boost/asio/steady_timer.hpp>
-#include "core/config.h"
+#include <asio/io_context.hpp>
+#include <asio/ip/udp.hpp>
+#include <asio/steady_timer.hpp>
+#include "../core/config.h"
 
 class Session : public std::enable_shared_from_this<Session> {
 protected:
@@ -42,14 +42,14 @@ protected:
     time_t start_time{};
     std::string out_write_buf;
     std::string udp_data_buf;
-    boost::asio::ip::tcp::resolver resolver;
-    boost::asio::ip::tcp::endpoint in_endpoint;
-    boost::asio::ip::udp::socket udp_socket;
-    boost::asio::ip::udp::endpoint udp_recv_endpoint;
-    boost::asio::steady_timer ssl_shutdown_timer;
+    asio::ip::tcp::resolver resolver;
+    asio::ip::tcp::endpoint in_endpoint;
+    asio::ip::udp::socket udp_socket;
+    asio::ip::udp::endpoint udp_recv_endpoint;
+    asio::steady_timer ssl_shutdown_timer;
 public:
-    Session(const Config &config, boost::asio::io_context &io_context);
-    virtual boost::asio::ip::tcp::socket& accept_socket() = 0;
+    Session(const Config &config, asio::io_context &io_context);
+    virtual asio::ip::tcp::socket& accept_socket() = 0;
     virtual void start() = 0;
     virtual ~Session();
 };

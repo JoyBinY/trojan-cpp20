@@ -19,7 +19,7 @@
 
 #include <cstdlib>
 #include <iostream>
-#include <boost/asio/signal_set.hpp>
+#include <asio/signal_set.hpp>
 #include <boost/program_options.hpp>
 #include <boost/version.hpp>
 #include <openssl/opensslv.h>
@@ -29,15 +29,14 @@
 #include "core/service.h"
 #include "core/version.h"
 using namespace std;
-using namespace boost::asio;
 namespace po = boost::program_options;
 
 #ifndef DEFAULT_CONFIG
 #define DEFAULT_CONFIG "config.json"
 #endif // DEFAULT_CONFIG
 
-void signal_async_wait(signal_set &sig, Service &service, bool &restart) {
-    sig.async_wait([&](const boost::system::error_code error, int signum) {
+void signal_async_wait(asio::signal_set &sig, Service &service, bool &restart) {
+    sig.async_wait([&](const asio::error_code error, int signum) {
         if (error) {
             return;
         }
@@ -151,7 +150,7 @@ int main(int argc, const char *argv[]) {
                 Log::log("The config file looks good.", Log::OFF);
                 exit(EXIT_SUCCESS);
             }
-            signal_set sig(service.service());
+            asio::signal_set sig(service.service());
             sig.add(SIGINT);
             sig.add(SIGTERM);
 #ifndef _WIN32

@@ -21,12 +21,12 @@
 #define _UDPFORWARDSESSION_H_
 
 #include "session.h"
-#include <boost/asio/ssl.hpp>
-#include <boost/asio/steady_timer.hpp>
+#include <asio/ssl.hpp>
+#include <asio/steady_timer.hpp>
 
 class UDPForwardSession : public Session {
 public:
-    typedef std::function<void(const boost::asio::ip::udp::endpoint&, const std::string&)> UDPWrite;
+    typedef std::function<void(const asio::ip::udp::endpoint&, const std::string&)> UDPWrite;
 private:
     enum Status {
         CONNECT,
@@ -35,8 +35,8 @@ private:
         DESTROY
     } status;
     UDPWrite in_write;
-    boost::asio::ssl::stream<boost::asio::ip::tcp::socket>out_socket;
-    boost::asio::steady_timer gc_timer;
+    asio::ssl::stream<asio::ip::tcp::socket>out_socket;
+    asio::steady_timer gc_timer;
     void destroy();
     void in_recv(const std::string &data);
     void out_async_read();
@@ -45,10 +45,10 @@ private:
     void out_sent();
     void timer_async_wait();
 public:
-    UDPForwardSession(const Config &config, boost::asio::io_context &io_context, boost::asio::ssl::context &ssl_context, const boost::asio::ip::udp::endpoint &endpoint, UDPWrite in_write);
-    boost::asio::ip::tcp::socket& accept_socket() override;
+    UDPForwardSession(const Config &config, asio::io_context &io_context, asio::ssl::context &ssl_context, const asio::ip::udp::endpoint &endpoint, UDPWrite in_write);
+    asio::ip::tcp::socket& accept_socket() override;
     void start() override;
-    bool process(const boost::asio::ip::udp::endpoint &endpoint, const std::string &data);
+    bool process(const asio::ip::udp::endpoint &endpoint, const std::string &data);
 };
 
 #endif // _UDPFORWARDSESSION_H_

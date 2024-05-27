@@ -29,7 +29,7 @@
 #endif // ENABLE_ANDROID_LOG
 using namespace std;
 using namespace boost::posix_time;
-using namespace boost::asio::ip;
+using namespace asio::ip;
 
 Log::Level Log::level(INFO);
 FILE *Log::keylog(nullptr);

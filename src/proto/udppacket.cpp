@@ -19,7 +19,7 @@
 
 #include "udppacket.h"
 using namespace std;
-using namespace boost::asio::ip;
+using namespace asio::ip;
 
 bool UDPPacket::parse(const string &data, size_t &udp_packet_len) {
     if (data.length() <= 0) {

@@ -21,7 +21,7 @@
 #define _NATSESSION_H_
 
 #include "session.h"
-#include <boost/asio/ssl.hpp>
+#include <asio/ssl.hpp>
 
 class NATSession : public Session {
 private:
@@ -31,8 +31,8 @@ private:
         DESTROY
     } status;
     bool first_packet_recv;
-    boost::asio::ip::tcp::socket in_socket;
-    boost::asio::ssl::stream<boost::asio::ip::tcp::socket>out_socket;
+    asio::ip::tcp::socket in_socket;
+    asio::ssl::stream<asio::ip::tcp::socket>out_socket;
     void destroy();
     void in_async_read();
     void in_async_write(const std::string &data);
@@ -44,8 +44,8 @@ private:
     void out_sent();
     std::pair<std::string, uint16_t> get_target_endpoint();
 public:
-    NATSession(const Config &config, boost::asio::io_context &io_context, boost::asio::ssl::context &ssl_context);
-    boost::asio::ip::tcp::socket& accept_socket() override;
+    NATSession(const Config &config, asio::io_context &io_context, asio::ssl::context &ssl_context);
+    asio::ip::tcp::socket& accept_socket() override;
     void start() override;
 };
 

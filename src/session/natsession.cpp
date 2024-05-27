@@ -21,8 +21,8 @@
 #include "proto/trojanrequest.h"
 #include "ssl/sslsession.h"
 using namespace std;
-using namespace boost::asio::ip;
-using namespace boost::asio::ssl;
+using namespace asio::ip;
+using namespace asio::ssl;
 
 // These 2 definitions are respectively from linux/netfilter_ipv4.h and
 // linux/netfilter_ipv6/ip6_tables.h. Including them will 1) cause linux-headers
@@ -35,7 +35,7 @@ using namespace boost::asio::ssl;
 #define IP6T_SO_ORIGINAL_DST 80
 #endif // IP6T_SO_ORIGINAL_DST
 
-NATSession::NATSession(const Config &config, boost::asio::io_context &io_context, context &ssl_context) :
+NATSession::NATSession(const Config &config, asio::io_context &io_context, context &ssl_context) :
     Session(config, io_context),
     status(CONNECT),
     first_packet_recv(false),
@@ -78,7 +78,7 @@ pair<string, uint16_t> NATSession::get_target_endpoint() {
 }
 
 void NATSession::start() {
-    boost::system::error_code ec;
+    asio::error_code ec;
     start_time = time(nullptr);
     in_endpoint = in_socket.remote_endpoint(ec);
     if (ec) {
@@ -106,7 +106,7 @@ void NATSession::start() {
     in_async_read();
     Log::log_with_endpoint(in_endpoint, "forwarding to " + target_addr + ':' + to_string(target_port) + " via " + config.remote_addr + ':' + to_string(config.remote_port), Log::INFO);
     auto self = shared_from_this();
-    resolver.async_resolve(config.remote_addr, to_string(config.remote_port), [this, self](const boost::system::error_code error, const tcp::resolver::results_type& results) {
+    resolver.async_resolve(config.remote_addr, to_string(config.remote_port), [this, self](const asio::error_code error, const tcp::resolver::results_type& results) {
         if (error || results.empty()) {
             Log::log_with_endpoint(in_endpoint, "cannot resolve remote server hostname " + config.remote_addr + ": " + error.message(), Log::ERROR);
             destroy();
@@ -114,7 +114,7 @@ void NATSession::start() {
         }
         auto iterator = results.begin();
         Log::log_with_endpoint(in_endpoint, config.remote_addr + " is resolved to " + iterator->endpoint().address().to_string(), Log::ALL);
-        boost::system::error_code ec;
+        asio::error_code ec;
         out_socket.next_layer().open(iterator->endpoint().protocol(), ec);
         if (ec) {
             destroy();
@@ -124,22 +124,22 @@ void NATSession::start() {
             out_socket.next_layer().set_option(tcp::no_delay(true));
         }
         if (config.tcp.keep_alive) {
-            out_socket.next_layer().set_option(boost::asio::socket_base::keep_alive(true));
+            out_socket.next_layer().set_option(asio::socket_base::keep_alive(true));
         }
 #ifdef TCP_FASTOPEN_CONNECT
         if (config.tcp.fast_open) {
-            using fastopen_connect = boost::asio::detail::socket_option::boolean<IPPROTO_TCP, TCP_FASTOPEN_CONNECT>;
-            boost::system::error_code ec;
+            using fastopen_connect = asio::detail::socket_option::boolean<IPPROTO_TCP, TCP_FASTOPEN_CONNECT>;
+            asio::error_code ec;
             out_socket.next_layer().set_option(fastopen_connect(true), ec);
         }
 #endif // TCP_FASTOPEN_CONNECT
-        out_socket.next_layer().async_connect(*iterator, [this, self](const boost::system::error_code error) {
+        out_socket.next_layer().async_connect(*iterator, [this, self](const asio::error_code error) {
             if (error) {
                 Log::log_with_endpoint(in_endpoint, "cannot establish connection to remote server " + config.remote_addr + ':' + to_string(config.remote_port) + ": " + error.message(), Log::ERROR);
                 destroy();
                 return;
             }
-            out_socket.async_handshake(stream_base::client, [this, self](const boost::system::error_code error) {
+            out_socket.async_handshake(stream_base::client, [this, self](const asio::error_code error) {
                 if (error) {
                     Log::log_with_endpoint(in_endpoint, "SSL handshake failed with " + config.remote_addr + ':' + to_string(config.remote_port) + ": " + error.message(), Log::ERROR);
                     destroy();
@@ -154,7 +154,7 @@ void NATSession::start() {
                         Log::log_with_endpoint(in_endpoint, "SSL session reused");
                     }
                 }
-                boost::system::error_code ec;
+                asio::error_code ec;
                 if (!first_packet_recv) {
                     in_socket.cancel(ec);
                 }
@@ -168,8 +168,8 @@ void NATSession::start() {
 
 void NATSession::in_async_read() {
     auto self = shared_from_this();
-    in_socket.async_read_some(boost::asio::buffer(in_read_buf, MAX_LENGTH), [this, self](const boost::system::error_code error, size_t length) {
-        if (error == boost::asio::error::operation_aborted) {
+    in_socket.async_read_some(asio::buffer(in_read_buf, MAX_LENGTH), [this, self](const asio::error_code error, size_t length) {
+        if (error == asio::error::operation_aborted) {
             return;
         }
         if (error) {
@@ -183,7 +183,7 @@ void NATSession::in_async_read() {
 void NATSession::in_async_write(const string &data) {
     auto self = shared_from_this();
     auto data_copy = make_shared<string>(data);
-    boost::asio::async_write(in_socket, boost::asio::buffer(*data_copy), [this, self, data_copy](const boost::system::error_code error, size_t) {
+    asio::async_write(in_socket, asio::buffer(*data_copy), [this, self, data_copy](const asio::error_code error, size_t) {
         if (error) {
             destroy();
             return;
@@ -194,7 +194,7 @@ void NATSession::in_async_write(const string &data) {
 
 void NATSession::out_async_read() {
     auto self = shared_from_this();
-    out_socket.async_read_some(boost::asio::buffer(out_read_buf, MAX_LENGTH), [this, self](const boost::system::error_code error, size_t length) {
+    out_socket.async_read_some(asio::buffer(out_read_buf, MAX_LENGTH), [this, self](const asio::error_code error, size_t length) {
         if (error) {
             destroy();
             return;
@@ -206,7 +206,7 @@ void NATSession::out_async_read() {
 void NATSession::out_async_write(const string &data) {
     auto self = shared_from_this();
     auto data_copy = make_shared<string>(data);
-    boost::asio::async_write(out_socket, boost::asio::buffer(*data_copy), [this, self, data_copy](const boost::system::error_code error, size_t) {
+    asio::async_write(out_socket, asio::buffer(*data_copy), [this, self, data_copy](const asio::error_code error, size_t) {
         if (error) {
             destroy();
             return;
@@ -251,7 +251,7 @@ void NATSession::destroy() {
     }
     status = DESTROY;
     Log::log_with_endpoint(in_endpoint, "disconnected, " + to_string(recv_len) + " bytes received, " + to_string(sent_len) + " bytes sent, lasted for " + to_string(time(nullptr) - start_time) + " seconds", Log::INFO);
-    boost::system::error_code ec;
+    asio::error_code ec;
     resolver.cancel();
     if (in_socket.is_open()) {
         in_socket.cancel(ec);
@@ -260,11 +260,11 @@ void NATSession::destroy() {
     }
     if (out_socket.next_layer().is_open()) {
         auto self = shared_from_this();
-        auto ssl_shutdown_cb = [this, self](const boost::system::error_code error) {
-            if (error == boost::asio::error::operation_aborted) {
+        auto ssl_shutdown_cb = [this, self](const asio::error_code error) {
+            if (error == asio::error::operation_aborted) {
                 return;
             }
-            boost::system::error_code ec;
+            asio::error_code ec;
             ssl_shutdown_timer.cancel();
             out_socket.next_layer().cancel(ec);
             out_socket.next_layer().shutdown(tcp::socket::shutdown_both, ec);

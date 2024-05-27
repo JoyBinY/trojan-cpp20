@@ -20,7 +20,7 @@
 #include "socks5address.h"
 #include <cstdio>
 using namespace std;
-using namespace boost::asio::ip;
+using namespace asio::ip;
 
 bool SOCKS5Address::parse(const string &data, size_t &address_len) {
     if (data.length() == 0 || (data[0] != IPv4 && data[0] != DOMAINNAME && data[0] != IPv6)) {
