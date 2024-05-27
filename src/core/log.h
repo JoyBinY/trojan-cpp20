@@ -17,8 +17,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _LOG_H_
-#define _LOG_H_
+#pragma once
 
 #include <cstdio>
 #include <string>
@@ -52,5 +51,3 @@ private:
     static FILE *output_stream;
     static LogCallback log_callback;
 };
-
-#endif // _LOG_H_

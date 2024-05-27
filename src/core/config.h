@@ -17,8 +17,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _CONFIG_H_
-#define _CONFIG_H_
+#pragma once
 
 #include <cstdint>
 #include <map>
@@ -90,5 +89,3 @@ public:
 private:
     void populate(const boost::property_tree::ptree &tree);
 };
-
-#endif // _CONFIG_H_

@@ -17,8 +17,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _SSLSESSION_H_
-#define _SSLSESSION_H_
+#pragma once
 
 #include <list>
 #include <openssl/ssl.h>
@@ -32,5 +31,3 @@ public:
     static SSL_SESSION *get_session();
     static void set_callback(SSL_CTX *context);
 };
-
-#endif // _SSLSESSION_H_

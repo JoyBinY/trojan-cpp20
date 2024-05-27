@@ -17,8 +17,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _SERVICE_H_
-#define _SERVICE_H_
+#pragma once
 
 #include <list>
 #include <boost/version.hpp>
@@ -53,5 +52,3 @@ public:
     void reload_cert();
     ~Service();
 };
-
-#endif // _SERVICE_H_

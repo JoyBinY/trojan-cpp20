@@ -17,8 +17,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _SOCKS5ADDRESS_H_
-#define _SOCKS5ADDRESS_H_
+#pragma once
 
 #include <cstdint>
 #include <string>
@@ -36,5 +35,3 @@ public:
     bool parse(const std::string &data, size_t &address_len);
     static std::string generate(const asio::ip::udp::endpoint &endpoint);
 };
-
-#endif // _SOCKS5ADDRESS_H_

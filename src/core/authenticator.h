@@ -17,8 +17,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _AUTHENTICATOR_H_
-#define _AUTHENTICATOR_H_
+#pragma once
 
 #ifdef ENABLE_MYSQL
 #include <mysql.h>
@@ -40,5 +39,3 @@ public:
     void record(const std::string &password, uint64_t download, uint64_t upload);
     ~Authenticator();
 };
-
-#endif // _AUTHENTICATOR_H_

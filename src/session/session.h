@@ -17,8 +17,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _SESSION_H_
-#define _SESSION_H_
+#pragma once
 
 #include <ctime>
 #include <memory>
@@ -53,5 +52,3 @@ public:
     virtual void start() = 0;
     virtual ~Session();
 };
-
-#endif // _SESSION_H_

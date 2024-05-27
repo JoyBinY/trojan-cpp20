@@ -17,8 +17,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _TROJANREQUEST_H_
-#define _TROJANREQUEST_H_
+#pragma once
 
 #include "socks5address.h"
 
@@ -34,5 +33,3 @@ public:
     int parse(const std::string &data);
     static std::string generate(const std::string &password, const std::string &domainname, uint16_t port, bool tcp);
 };
-
-#endif // _TROJANREQUEST_H_

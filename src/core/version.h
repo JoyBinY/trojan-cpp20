@@ -16,9 +16,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
-#ifndef _VERSION_H_
-#define _VERSION_H_
+ 
+#pragma once
 
 #include <string>
 
@@ -28,5 +27,3 @@ private:
 public:
     static std::string get_version();
 };
-
-#endif // _VERSION_H_

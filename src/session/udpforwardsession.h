@@ -17,8 +17,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _UDPFORWARDSESSION_H_
-#define _UDPFORWARDSESSION_H_
+#pragma once
 
 #include "session.h"
 #include <asio/ssl.hpp>
@@ -50,5 +49,3 @@ public:
     void start() override;
     bool process(const asio::ip::udp::endpoint &endpoint, const std::string &data);
 };
-
-#endif // _UDPFORWARDSESSION_H_

@@ -16,9 +16,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
-#ifndef _NATSESSION_H_
-#define _NATSESSION_H_
+ 
+#pragma once
 
 #include "session.h"
 #include <asio/ssl.hpp>
@@ -48,5 +47,3 @@ public:
     asio::ip::tcp::socket& accept_socket() override;
     void start() override;
 };
-
-#endif // _NATSESSION_H_

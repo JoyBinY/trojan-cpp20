@@ -17,8 +17,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _SERVERSESSION_H_
-#define _SERVERSESSION_H_
+#pragma once
 
 #include "session.h"
 #include <asio/ssl.hpp>
@@ -56,5 +55,3 @@ public:
     asio::ip::tcp::socket& accept_socket() override;
     void start() override;
 };
-
-#endif // _SERVERSESSION_H_

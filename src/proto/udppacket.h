@@ -17,8 +17,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _UDPPACKET_H_
-#define _UDPPACKET_H_
+#pragma once
 
 #include "socks5address.h"
 
@@ -31,5 +30,3 @@ public:
     static std::string generate(const asio::ip::udp::endpoint &endpoint, const std::string &payload);
     static std::string generate(const std::string &domainname, uint16_t port, const std::string &payload);
 };
-
-#endif // _UDPPACKET_H_
