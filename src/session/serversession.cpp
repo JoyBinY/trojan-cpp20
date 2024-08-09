@@ -74,7 +74,7 @@ void ServerSession::in_async_read() {
     });
 }
 
-void ServerSession::in_async_write(const string &data) {
+void ServerSession::in_async_write(string_view data) {
     auto self = shared_from_this();
     auto data_copy = make_shared<string>(data);
     asio::async_write(in_socket, asio::buffer(*data_copy), [this, self, data_copy](const asio::error_code error, size_t) {
@@ -97,7 +97,7 @@ void ServerSession::out_async_read() {
     });
 }
 
-void ServerSession::out_async_write(const string &data) {
+void ServerSession::out_async_write(string_view data) {
     auto self = shared_from_this();
     auto data_copy = make_shared<string>(data);
     asio::async_write(out_socket, asio::buffer(*data_copy), [this, self, data_copy](const asio::error_code error, size_t) {
@@ -120,7 +120,7 @@ void ServerSession::udp_async_read() {
     });
 }
 
-void ServerSession::udp_async_write(const string &data, const udp::endpoint &endpoint) {
+void ServerSession::udp_async_write(string_view data, const udp::endpoint &endpoint) {
     auto self = shared_from_this();
     auto data_copy = make_shared<string>(data);
     udp_socket.async_send_to(asio::buffer(*data_copy), endpoint, [this, self, data_copy](const asio::error_code error, size_t) {
@@ -132,7 +132,7 @@ void ServerSession::udp_async_write(const string &data, const udp::endpoint &end
     });
 }
 
-void ServerSession::in_recv(const string &data) {
+void ServerSession::in_recv(std::string_view data) {
     if (status == HANDSHAKE) {
         TrojanRequest req;
         bool valid = req.parse(data) != -1;
@@ -252,7 +252,7 @@ void ServerSession::in_sent() {
     }
 }
 
-void ServerSession::out_recv(const string &data) {
+void ServerSession::out_recv(string_view data) {
     if (status == FORWARD) {
         recv_len += data.length();
         in_async_write(data);
@@ -265,7 +265,7 @@ void ServerSession::out_sent() {
     }
 }
 
-void ServerSession::udp_recv(const string &data, const udp::endpoint &endpoint) {
+void ServerSession::udp_recv(string_view data, const udp::endpoint &endpoint) {
     if (status == UDP_FORWARD) {
         size_t length = data.length();
         Log::log_with_endpoint(in_endpoint, "received a UDP packet of length " + to_string(length) + " bytes from " + endpoint.address().to_string() + ':' + to_string(endpoint.port()));

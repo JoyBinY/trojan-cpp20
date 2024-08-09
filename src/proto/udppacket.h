@@ -27,6 +27,6 @@ public:
     uint16_t length;
     std::string payload;
     bool parse(const std::string &data, size_t &udp_packet_len);
-    static std::string generate(const asio::ip::udp::endpoint &endpoint, const std::string &payload);
-    static std::string generate(const std::string &domainname, uint16_t port, const std::string &payload);
+    static std::string generate(const asio::ip::udp::endpoint &endpoint, std::string_view payload);
+    static std::string generate(const std::string &domainname, uint16_t port, std::string_view payload);
 };

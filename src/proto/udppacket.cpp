@@ -18,6 +18,7 @@
  */
 
 #include "udppacket.h"
+#include <string_view>
 using namespace std;
 using namespace asio::ip;
 
@@ -39,7 +40,7 @@ bool UDPPacket::parse(const string &data, size_t &udp_packet_len) {
     return true;
 }
 
-string UDPPacket::generate(const udp::endpoint &endpoint, const string &payload) {
+string UDPPacket::generate(const udp::endpoint &endpoint, string_view payload) {
     string ret = SOCKS5Address::generate(endpoint);
     ret += char(uint8_t(payload.length() >> 8));
     ret += char(uint8_t(payload.length() & 0xFF));
@@ -48,7 +49,7 @@ string UDPPacket::generate(const udp::endpoint &endpoint, const string &payload)
     return ret;
 }
 
-string UDPPacket::generate(const string &domainname, uint16_t port, const string &payload) {
+string UDPPacket::generate(const string &domainname, uint16_t port, string_view payload) {
     string ret = "\x03";
     ret += char(uint8_t(domainname.length()));
     ret += domainname;

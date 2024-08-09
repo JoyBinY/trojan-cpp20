@@ -20,11 +20,19 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 ## Dependencies
 
 - [CMake](https://cmake.org/) >= 3.7.2
-- [Boost](http://www.boost.org/) >= 1.66.0
 - [OpenSSL](https://www.openssl.org/) >= 1.1.0
 - [asio](https://think-async.com/Asio/) >= 1.30.2
+- [cxxopts](https://github.com/jarro2783/cxxopts/tags) >= 3.2.1
+- [rapidjson](https://github.com/Tencent/rapidjson/tags) > 1.1.0
 - [libmysqlclient](https://dev.mysql.com/downloads/connector/c/)
 
 ## License
 
 [GPLv3](LICENSE)
+
+## Build
+
+PRO_DIR=/code/trojan-cpp20
+INS_DIR=${PRO_DIR}/util/install
+cmake -G"Ninja" -B${PRO_DIR}/.build -DCMAKE_INSTALL_PREFIX=${INS_DIR} -DCMAKE_PREFIX_PATH=${INS_DIR} -DENABLE_MYSQL=FALSE -DCMAKE_EXPORT_COMPILE_COMMANDS=1 . && cmake --build ${PRO_DIR}/.build
+cmake -G"Ninja" -B${PRO_DIR}/.build -DCMAKE_INSTALL_PREFIX=${INS_DIR} -DCMAKE_PREFIX_PATH=${INS_DIR} -DENABLE_MYSQL=FALSE -DCMAKE_EXPORT_COMPILE_COMMANDS=1 . && cmake --build ${PRO_DIR}/.build -- install

@@ -39,16 +39,16 @@ private:
     const std::string &plain_http_response;
     void destroy();
     void in_async_read();
-    void in_async_write(const std::string &data);
-    void in_recv(const std::string &data);
+    void in_async_write(std::string_view data);
+    void in_recv(std::string_view data);
     void in_sent();
     void out_async_read();
-    void out_async_write(const std::string &data);
-    void out_recv(const std::string &data);
+    void out_async_write(std::string_view data);
+    void out_recv(std::string_view data);
     void out_sent();
     void udp_async_read();
-    void udp_async_write(const std::string &data, const asio::ip::udp::endpoint &endpoint);
-    void udp_recv(const std::string &data, const asio::ip::udp::endpoint &endpoint);
+    void udp_async_write(std::string_view data, const asio::ip::udp::endpoint &endpoint);
+    void udp_recv(std::string_view data, const asio::ip::udp::endpoint &endpoint);
     void udp_sent();
 public:
     ServerSession(const Config &config, asio::io_context &io_context, asio::ssl::context &ssl_context, Authenticator *auth, const std::string &plain_http_response);

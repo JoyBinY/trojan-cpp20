@@ -20,7 +20,6 @@
 #pragma once
 
 #include <list>
-#include <boost/version.hpp>
 #include <asio/io_context.hpp>
 #include <asio/ssl.hpp>
 #include <asio/ip/udp.hpp>

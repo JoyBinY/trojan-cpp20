@@ -21,7 +21,7 @@
 
 #include <cstdint>
 #include <map>
-#include <boost/property_tree/ptree.hpp>
+#include <rapidjson/document.h>
 #include "log.h"
 
 class Config {
@@ -87,5 +87,24 @@ public:
     bool sip003();
     static std::string SHA224(const std::string &message);
 private:
-    void populate(const boost::property_tree::ptree &tree);
+    void populate(const rapidjson::Document &tree);
 };
+
+template <typename T>
+inline T get_json_value(const rapidjson::Value& value, const char* key, T defaultValue) {
+    if (value.HasMember(key)) {
+        if constexpr (std::is_same_v<T, std::string> || std::is_same_v<T, char const*>) {
+            return value[key].IsString() ? value[key].GetString() : defaultValue;
+        } else if constexpr (std::is_same_v<T, int> || std::is_same_v<T, long>) {
+            return value[key].IsInt() ? value[key].GetInt() : defaultValue;
+        } else if constexpr (std::is_same_v<T, bool>) {
+            return value[key].IsBool() ? value[key].GetBool() : defaultValue;
+        } else if constexpr (std::is_same_v<T, unsigned short> || std::is_same_v<T, unsigned int>) {
+            return value[key].IsUint() ? value[key].GetUint() : defaultValue;
+        } else {
+            return defaultValue;
+        }
+    } else {
+        return defaultValue;
+    }
+}

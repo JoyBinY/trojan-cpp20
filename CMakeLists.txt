@@ -28,12 +28,14 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(asio asio REQUIRED)
 target_include_directories(${APP_NAME} PRIVATE ${asio_INCLUDE_DIRS})
 
-find_package(Boost 1.66.0 REQUIRED COMPONENTS program_options)
-target_include_directories(${APP_NAME} PRIVATE ${Boost_INCLUDE_DIR})
-target_link_libraries(${APP_NAME} ${Boost_LIBRARIES})
-if(MSVC)
-    add_definitions(-DBOOST_DATE_TIME_NO_LIB)
-endif()
+find_package(cxxopts CONFIG REQUIRED)
+find_package(RapidJSON CONFIG REQUIRED)
+
+target_compile_definitions(${APP_NAME} PUBLIC
+    ASIO_VERSION=${asio_VERSION}
+    CXXOPTS_VERSION=${cxxopts_VERSION}
+    RAPIDJSON_VERSION=${RapidJSON_VERSION}
+)
 
 find_package(OpenSSL 1.1.0 REQUIRED)
 target_include_directories(${APP_NAME} PRIVATE ${OPENSSL_INCLUDE_DIR})
