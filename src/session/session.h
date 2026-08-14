@@ -22,6 +22,7 @@
 #include <ctime>
 #include <memory>
 #include <array>
+#include <string>
 #include <asio/io_context.hpp>
 #include <asio/ip/udp.hpp>
 #include <asio/steady_timer.hpp>

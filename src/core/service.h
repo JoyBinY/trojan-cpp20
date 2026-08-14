@@ -22,6 +22,7 @@
 #include <list>
 #include <memory>
 #include <array>
+#include <string>
 #include <asio/io_context.hpp>
 #include <asio/ssl.hpp>
 #include <asio/ip/udp.hpp>

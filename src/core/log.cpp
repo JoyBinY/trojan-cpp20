@@ -21,11 +21,9 @@
 #include <cstring>
 #include <cerrno>
 #include <stdexcept>
-#include <sstream>
 #include <array>
 #include <chrono>
 #include <ctime>
-#include <iomanip>
 #ifdef ENABLE_ANDROID_LOG
 #include <android/log.h>
 #endif // ENABLE_ANDROID_LOG
@@ -36,7 +34,6 @@ using namespace asio::ip;
 Log::Level Log::level(Log::Level::INFO);
 FILE *Log::keylog = nullptr;
 FILE *Log::output_stream = stderr;
-Log::LogCallback Log::log_callback{};
 
 void Log::log(string_view message, Level level) {
     if (level >= Log::level) {
@@ -47,9 +44,6 @@ void Log::log(string_view message, Level level) {
         fprintf(output_stream, "%.*s\n", static_cast<int>(message.size()), message.data());
         fflush(output_stream);
 #endif // ENABLE_ANDROID_LOG
-        if (log_callback) {
-            log_callback(string(message), level);
-        }
     }
 }
 
@@ -90,10 +84,6 @@ void Log::redirect_keylog(string_view filename) {
         fclose(keylog);
     }
     keylog = fp;
-}
-
-void Log::set_callback(LogCallback cb) {
-    log_callback = move(cb);
 }
 
 void Log::reset() {

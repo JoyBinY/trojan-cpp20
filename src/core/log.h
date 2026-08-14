@@ -20,9 +20,7 @@
 #pragma once
 
 #include <cstdio>
-#include <string>
 #include <string_view>
-#include <functional>
 #include <asio/ip/tcp.hpp>
 
 #ifdef ERROR // windows.h
@@ -39,7 +37,6 @@ public:
         FATAL = 4,
         OFF = 5
     };
-    using LogCallback = std::function<void(const std::string &, Level)>;
     static Level level;
     static FILE *keylog;
     static void log(std::string_view message, Level level = Level::ALL);
@@ -47,9 +44,7 @@ public:
     static void log_with_endpoint(const asio::ip::tcp::endpoint &endpoint, std::string_view message, Level level = Level::ALL);
     static void redirect(std::string_view filename);
     static void redirect_keylog(std::string_view filename);
-    static void set_callback(LogCallback cb);
     static void reset();
 private:
     static FILE *output_stream;
-    static LogCallback log_callback;
 };

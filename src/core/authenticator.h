@@ -19,8 +19,6 @@
 
 #pragma once
 
-#include <cstdint>
-#include <string>
 #include <string_view>
 #ifdef ENABLE_MYSQL
 #include <mysql.h>
