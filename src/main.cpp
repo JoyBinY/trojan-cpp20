@@ -18,7 +18,6 @@
  */
 
 #include <cstdlib>
-#include <iostream>
 #include <string>
 #include <asio/signal_set.hpp>
 #include <asio/version.hpp>

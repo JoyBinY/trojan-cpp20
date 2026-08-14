@@ -23,7 +23,6 @@
 #include <stdexcept>
 #include <array>
 #include <fstream>
-#include <nlohmann/json.hpp>
 #include <openssl/evp.h>
 using namespace std;
 using namespace nlohmann;
