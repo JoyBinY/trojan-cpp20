@@ -23,7 +23,7 @@
 #include <map>
 #include <string>
 #include <string_view>
-#include <boost/property_tree/ptree.hpp>
+#include <nlohmann/json.hpp>
 #include "log.h"
 
 class Config {
@@ -86,5 +86,5 @@ public:
     bool sip003();
     [[nodiscard]] static std::string SHA224(std::string_view message);
 private:
-    void populate(const boost::property_tree::ptree &tree);
+    void populate(const nlohmann::json &tree);
 };

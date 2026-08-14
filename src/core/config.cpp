@@ -22,27 +22,28 @@
 #include <sstream>
 #include <stdexcept>
 #include <array>
-#include <boost/property_tree/json_parser.hpp>
+#include <fstream>
+#include <nlohmann/json.hpp>
 #include <openssl/evp.h>
 using namespace std;
-using namespace boost::property_tree;
+using namespace nlohmann;
 
 void Config::load(string_view filename) {
-    ptree tree;
-    read_json(string(filename), tree);
+    std::ifstream ifs{string(filename)};
+    if (!ifs) {
+        throw runtime_error(string(filename) + ": config file not found");
+    }
+    json tree = json::parse(ifs);
     populate(tree);
 }
 
 void Config::populate(string_view JSON) {
-    string json_str(JSON);
-    istringstream s{json_str};
-    ptree tree;
-    read_json(s, tree);
+    json tree = json::parse(string(JSON));
     populate(tree);
 }
 
-void Config::populate(const ptree &tree) {
-    string rt = tree.get("run_type", string("client"));
+void Config::populate(const json &tree) {
+    string rt = tree.value("run_type", "client");
     if (rt == "server") {
         run_type = RunType::SERVER;
     } else if (rt == "forward") {
@@ -54,65 +55,65 @@ void Config::populate(const ptree &tree) {
     } else {
         throw runtime_error("wrong run_type in config file");
     }
-    local_addr = tree.get("local_addr", string());
-    local_port = tree.get("local_port", uint16_t());
-    remote_addr = tree.get("remote_addr", string());
-    remote_port = tree.get("remote_port", uint16_t());
-    target_addr = tree.get("target_addr", string());
-    target_port = tree.get("target_port", uint16_t());
+    local_addr = tree.value("local_addr", string());
+    local_port = tree.value("local_port", uint16_t());
+    remote_addr = tree.value("remote_addr", string());
+    remote_port = tree.value("remote_port", uint16_t());
+    target_addr = tree.value("target_addr", string());
+    target_port = tree.value("target_port", uint16_t());
     password.clear();
-    if (tree.get_child_optional("password")) {
-        for (const auto& item : tree.get_child("password")) {
-            string p = item.second.get_value<string>();
+    if (tree.contains("password")) {
+        for (const auto &item : tree["password"]) {
+            string p = item.get<string>();
             password[SHA224(p)] = p;
         }
     }
-    udp_timeout = tree.get("udp_timeout", 60);
-    log_level = static_cast<Log::Level>(tree.get("log_level", 1));
-    ssl.verify = tree.get("ssl.verify", true);
-    ssl.verify_hostname = tree.get("ssl.verify_hostname", true);
-    ssl.cert = tree.get("ssl.cert", string());
-    ssl.key = tree.get("ssl.key", string());
-    ssl.key_password = tree.get("ssl.key_password", string());
-    ssl.cipher = tree.get("ssl.cipher", string());
-    ssl.cipher_tls13 = tree.get("ssl.cipher_tls13", string());
-    ssl.prefer_server_cipher = tree.get("ssl.prefer_server_cipher", true);
-    ssl.sni = tree.get("ssl.sni", string());
+    udp_timeout = tree.value("udp_timeout", 60);
+    log_level = static_cast<Log::Level>(tree.value("log_level", 1));
+    ssl.verify = tree.value("ssl.verify", true);
+    ssl.verify_hostname = tree.value("ssl.verify_hostname", true);
+    ssl.cert = tree.value("ssl.cert", string());
+    ssl.key = tree.value("ssl.key", string());
+    ssl.key_password = tree.value("ssl.key_password", string());
+    ssl.cipher = tree.value("ssl.cipher", string());
+    ssl.cipher_tls13 = tree.value("ssl.cipher_tls13", string());
+    ssl.prefer_server_cipher = tree.value("ssl.prefer_server_cipher", true);
+    ssl.sni = tree.value("ssl.sni", string());
     ssl.alpn = "";
-    if (tree.get_child_optional("ssl.alpn")) {
-        for (const auto& item : tree.get_child("ssl.alpn")) {
-            string proto = item.second.get_value<string>();
+    if (tree.contains("ssl") && tree["ssl"].contains("alpn")) {
+        for (const auto &item : tree["ssl"]["alpn"]) {
+            string proto = item.get<string>();
             ssl.alpn += static_cast<char>(static_cast<unsigned char>(proto.length()));
             ssl.alpn += proto;
         }
     }
     ssl.alpn_port_override.clear();
-    if (tree.get_child_optional("ssl.alpn_port_override")) {
-        for (const auto& item : tree.get_child("ssl.alpn_port_override")) {
-            ssl.alpn_port_override[item.first] = item.second.get_value<uint16_t>();
+    if (tree.contains("ssl") && tree["ssl"].contains("alpn_port_override")) {
+        for (auto &[key, val] : tree["ssl"]["alpn_port_override"].items()) {
+            ssl.alpn_port_override[key] = val.get<uint16_t>();
         }
     }
-    ssl.reuse_session = tree.get("ssl.reuse_session", true);
-    ssl.session_ticket = tree.get("ssl.session_ticket", false);
-    ssl.session_timeout = tree.get("ssl.session_timeout", long(600));
-    ssl.plain_http_response = tree.get("ssl.plain_http_response", string());
-    ssl.curves = tree.get("ssl.curves", string());
-    ssl.dhparam = tree.get("ssl.dhparam", string());
-    tcp.prefer_ipv4 = tree.get("tcp.prefer_ipv4", false);
-    tcp.no_delay = tree.get("tcp.no_delay", true);
-    tcp.keep_alive = tree.get("tcp.keep_alive", true);
-    tcp.reuse_port = tree.get("tcp.reuse_port", false);
-    tcp.fast_open = tree.get("tcp.fast_open", false);
-    tcp.fast_open_qlen = tree.get("tcp.fast_open_qlen", 20);
-    mysql.enabled = tree.get("mysql.enabled", false);
-    mysql.server_addr = tree.get("mysql.server_addr", string("127.0.0.1"));
-    mysql.server_port = tree.get("mysql.server_port", uint16_t(3306));
-    mysql.database = tree.get("mysql.database", string("trojan"));
-    mysql.username = tree.get("mysql.username", string("trojan"));
-    mysql.password = tree.get("mysql.password", string());
-    mysql.key = tree.get("mysql.key", string());
-    mysql.cert = tree.get("mysql.cert", string());
-    mysql.ca = tree.get("mysql.ca", string());
+    ssl.reuse_session = tree.value("ssl.reuse_session", true);
+    ssl.session_ticket = tree.value("ssl.session_ticket", false);
+    ssl.session_timeout = tree.value("ssl.session_timeout", long(600));
+    ssl.plain_http_response = tree.value("ssl.plain_http_response", string());
+    ssl.curves = tree.value("ssl.curves", string());
+    ssl.dhparam = tree.value("ssl.dhparam", string());
+    tcp.prefer_ipv4 = tree.value("tcp.prefer_ipv4", false);
+    tcp.no_delay = tree.value("tcp.no_delay", true);
+    tcp.keep_alive = tree.value("tcp.keep_alive", true);
+    tcp.reuse_port = tree.value("tcp.reuse_port", false);
+    tcp.fast_open = tree.value("tcp.fast_open", false);
+    tcp.fast_open_qlen = tree.value("tcp.fast_open_qlen", 20);
+    mysql.enabled = tree.value("mysql.enabled", false);
+    mysql.server_addr = tree.value("mysql.server_addr", string("127.0.0.1"));
+    mysql.server_port = tree.value("mysql.server_port", uint16_t(3306));
+    mysql.database = tree.value("mysql.database", string("trojan"));
+    mysql.username = tree.value("mysql.username", string("trojan"));
+    mysql.password = tree.value("mysql.password", string());
+    mysql.key = tree.value("mysql.key", string());
+    mysql.cert = tree.value("mysql.cert", string());
+    mysql.ca = tree.value("mysql.ca", string());
 }
 
 bool Config::sip003() {
@@ -120,7 +121,7 @@ bool Config::sip003() {
     if (JSON == nullptr) {
         return false;
     }
-    populate(JSON);
+    populate(string_view(JSON));
     switch (run_type) {
         case RunType::SERVER:
             local_addr = getenv("SS_REMOTE_HOST");

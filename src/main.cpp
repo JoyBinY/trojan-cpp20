@@ -22,7 +22,7 @@
 #include <string>
 #include <asio/signal_set.hpp>
 #include <asio/version.hpp>
-#include <boost/program_options.hpp>
+#include <CLI/CLI.hpp>
 #include <openssl/opensslv.h>
 #ifdef ENABLE_MYSQL
 #include <mysql.h>
@@ -31,7 +31,6 @@
 #include "core/version.h"
 using namespace std;
 using namespace asio;
-namespace po = boost::program_options;
 
 #ifndef DEFAULT_CONFIG
 #define DEFAULT_CONFIG "config.json"
@@ -65,30 +64,19 @@ void signal_async_wait(signal_set &sig, Service &service, bool &restart) {
 int main(int argc, const char *argv[]) {
     try {
         Log::log("Welcome to trojan " + Version::get_version(), Log::Level::FATAL);
-        string config_file;
+        CLI::App app{"trojan"};
+        string config_file = DEFAULT_CONFIG;
         string log_file;
         string keylog_file;
         bool test = false;
-        po::options_description desc("options");
-        desc.add_options()
-            ("config,c", po::value<string>(&config_file)->default_value(DEFAULT_CONFIG)->value_name("CONFIG"), "specify config file")
-            ("help,h", "print help message")
-            ("keylog,k", po::value<string>(&keylog_file)->value_name("KEYLOG"), "specify keylog file location (OpenSSL >= 1.1.1)")
-            ("log,l", po::value<string>(&log_file)->value_name("LOG"), "specify log file location")
-            ("test,t", po::bool_switch(&test), "test config file")
-            ("version,v", "print version and build info")
-        ;
-        po::positional_options_description pd;
-        pd.add("config", 1);
-        po::variables_map vm;
-        po::store(po::command_line_parser(argc, argv).options(desc).positional(pd).run(), vm);
-        po::notify(vm);
-        if (vm.count("help")) {
-            Log::log(string("usage: ") + argv[0] + " [-htv] [-l LOG] [-k KEYLOG] [[-c] CONFIG]", Log::Level::FATAL);
-            cerr << desc;
-            exit(EXIT_SUCCESS);
-        }
-        if (vm.count("version")) {
+        bool show_version = false;
+        app.add_option("-c,--config,config", config_file, "specify config file")->type_name("CONFIG")->default_val(DEFAULT_CONFIG);
+        app.add_option("-l,--log", log_file, "specify log file location")->type_name("LOG");
+        app.add_option("-k,--keylog", keylog_file, "specify keylog file location (OpenSSL >= 1.1.1)")->type_name("KEYLOG");
+        app.add_flag("-t,--test", test, "test config file");
+        app.add_flag("-v,--version", show_version, "print version and build info");
+        CLI11_PARSE(app, argc, argv);
+        if (show_version) {
             Log::log(string("Asio ") + to_string(ASIO_VERSION / 100000) + '.' +
                      to_string(ASIO_VERSION / 100 % 1000) + '.' +
                      to_string(ASIO_VERSION % 100) + ", " + OpenSSL_version(OPENSSL_VERSION), Log::Level::FATAL);
@@ -134,10 +122,10 @@ int main(int argc, const char *argv[]) {
             Log::log(string("\tBuild Flags: ") + OpenSSL_version(OPENSSL_CFLAGS), Log::Level::FATAL);
             exit(EXIT_SUCCESS);
         }
-        if (vm.count("log")) {
+        if (!log_file.empty()) {
             Log::redirect(log_file);
         }
-        if (vm.count("keylog")) {
+        if (!keylog_file.empty()) {
             Log::redirect_keylog(keylog_file);
         }
         bool restart;

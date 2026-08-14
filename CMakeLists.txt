@@ -24,8 +24,9 @@ target_link_libraries(trojan ${CMAKE_THREAD_LIBS_INIT})
 
 add_definitions(-DASIO_STANDALONE)
 
-find_package(Boost REQUIRED COMPONENTS program_options)
-target_link_libraries(trojan ${Boost_LIBRARIES})
+find_package(CLI11 REQUIRED)
+find_package(nlohmann_json REQUIRED)
+target_link_libraries(trojan CLI11::CLI11 nlohmann_json::nlohmann_json)
 
 find_package(OpenSSL 1.1.0 REQUIRED)
 target_include_directories(trojan PRIVATE ${OPENSSL_INCLUDE_DIR})

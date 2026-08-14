@@ -23,13 +23,14 @@
 #include <stdexcept>
 #include <sstream>
 #include <array>
-#include <boost/date_time/posix_time/posix_time.hpp>
-#include <boost/date_time/posix_time/posix_time_io.hpp>
+#include <chrono>
+#include <ctime>
+#include <iomanip>
 #ifdef ENABLE_ANDROID_LOG
 #include <android/log.h>
 #endif // ENABLE_ANDROID_LOG
 using namespace std;
-using namespace boost::posix_time;
+using namespace std::chrono;
 using namespace asio::ip;
 
 Log::Level Log::level(Log::Level::INFO);
@@ -54,12 +55,13 @@ void Log::log(string_view message, Level level) {
 
 void Log::log_with_date_time(string_view message, Level level) {
     static constexpr array<const char*, 6> level_strings = {"ALL", "INFO", "WARN", "ERROR", "FATAL", "OFF"};
-    auto *facet = new time_facet("[%Y-%m-%d %H:%M:%S] ");
-    ostringstream stream;
-    stream.imbue(locale(stream.getloc(), facet));
-    stream << second_clock::local_time();
+    auto now = system_clock::now();
+    auto time_t_now = system_clock::to_time_t(now);
+    auto tm_now = *std::localtime(&time_t_now);
+    char buf[32];
+    std::strftime(buf, sizeof(buf), "[%Y-%m-%d %H:%M:%S] ", &tm_now);
     string level_string = '[' + string(level_strings[static_cast<int>(level)]) + "] ";
-    log(stream.str() + level_string + string(message), level);
+    log(string(buf) + level_string + string(message), level);
 }
 
 void Log::log_with_endpoint(const tcp::endpoint &endpoint, string_view message, Level level) {
