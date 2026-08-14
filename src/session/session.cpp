@@ -19,7 +19,7 @@
 
 #include "session.h"
 
-Session::Session(const Config &config, boost::asio::io_context &io_context) :
+Session::Session(const Config &config, asio::io_context &io_context) :
     config(config),
     resolver(io_context),
     udp_socket(io_context),

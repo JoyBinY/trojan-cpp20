@@ -21,7 +21,7 @@
 
 #include <string>
 #include <string_view>
-#include <boost/asio/ssl.hpp>
+#include <asio/ssl.hpp>
 #include "session.h"
 #include "core/authenticator.h"
 
@@ -33,9 +33,9 @@ private:
         UDP_FORWARD,
         DESTROY
     } status;
-    boost::asio::ssl::stream<boost::asio::ip::tcp::socket> in_socket;
-    boost::asio::ip::tcp::socket out_socket;
-    boost::asio::ip::udp::resolver udp_resolver;
+    asio::ssl::stream<asio::ip::tcp::socket> in_socket;
+    asio::ip::tcp::socket out_socket;
+    asio::ip::udp::resolver udp_resolver;
     Authenticator *auth;
     std::string auth_password;
     const std::string &plain_http_response;
@@ -49,11 +49,11 @@ private:
     void out_recv(std::string_view data);
     void out_sent();
     void udp_async_read();
-    void udp_async_write(std::string_view data, const boost::asio::ip::udp::endpoint &endpoint);
-    void udp_recv(std::string_view data, const boost::asio::ip::udp::endpoint &endpoint);
+    void udp_async_write(std::string_view data, const asio::ip::udp::endpoint &endpoint);
+    void udp_recv(std::string_view data, const asio::ip::udp::endpoint &endpoint);
     void udp_sent();
 public:
-    ServerSession(const Config &config, boost::asio::io_context &io_context, boost::asio::ssl::context &ssl_context, Authenticator *auth, const std::string &plain_http_response);
-    boost::asio::ip::tcp::socket& accept_socket() override;
+    ServerSession(const Config &config, asio::io_context &io_context, asio::ssl::context &ssl_context, Authenticator *auth, const std::string &plain_http_response);
+    asio::ip::tcp::socket& accept_socket() override;
     void start() override;
 };

@@ -23,7 +23,7 @@
 #include <string>
 #include <string_view>
 #include <functional>
-#include <boost/asio/ip/tcp.hpp>
+#include <asio/ip/tcp.hpp>
 
 #ifdef ERROR // windows.h
 #undef ERROR
@@ -44,7 +44,7 @@ public:
     static FILE *keylog;
     static void log(std::string_view message, Level level = Level::ALL);
     static void log_with_date_time(std::string_view message, Level level = Level::ALL);
-    static void log_with_endpoint(const boost::asio::ip::tcp::endpoint &endpoint, std::string_view message, Level level = Level::ALL);
+    static void log_with_endpoint(const asio::ip::tcp::endpoint &endpoint, std::string_view message, Level level = Level::ALL);
     static void redirect(std::string_view filename);
     static void redirect_keylog(std::string_view filename);
     static void set_callback(LogCallback cb);

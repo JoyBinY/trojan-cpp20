@@ -21,7 +21,7 @@
 #include <cstdio>
 #include <array>
 using namespace std;
-using namespace boost::asio::ip;
+using namespace asio::ip;
 
 bool SOCKS5Address::parse(const string &data, size_t &address_len) {
     if (data.empty()) {

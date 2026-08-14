@@ -20,9 +20,9 @@
 #include <cstdlib>
 #include <iostream>
 #include <string>
-#include <boost/asio/signal_set.hpp>
+#include <asio/signal_set.hpp>
+#include <asio/version.hpp>
 #include <boost/program_options.hpp>
-#include <boost/version.hpp>
 #include <openssl/opensslv.h>
 #ifdef ENABLE_MYSQL
 #include <mysql.h>
@@ -30,7 +30,7 @@
 #include "core/service.h"
 #include "core/version.h"
 using namespace std;
-using namespace boost::asio;
+using namespace asio;
 namespace po = boost::program_options;
 
 #ifndef DEFAULT_CONFIG
@@ -38,7 +38,7 @@ namespace po = boost::program_options;
 #endif // DEFAULT_CONFIG
 
 void signal_async_wait(signal_set &sig, Service &service, bool &restart) {
-    sig.async_wait([&](const boost::system::error_code error, int signum) {
+    sig.async_wait([&](const std::error_code error, int signum) {
         if (error) {
             return;
         }
@@ -89,7 +89,9 @@ int main(int argc, const char *argv[]) {
             exit(EXIT_SUCCESS);
         }
         if (vm.count("version")) {
-            Log::log(string("Boost ") + BOOST_LIB_VERSION + ", " + OpenSSL_version(OPENSSL_VERSION), Log::Level::FATAL);
+            Log::log(string("Asio ") + to_string(ASIO_VERSION / 100000) + '.' +
+                     to_string(ASIO_VERSION / 100 % 1000) + '.' +
+                     to_string(ASIO_VERSION % 100) + ", " + OpenSSL_version(OPENSSL_VERSION), Log::Level::FATAL);
 #ifdef ENABLE_MYSQL
             Log::log(string(" [Enabled] MySQL Support (") + mysql_get_client_info() + ')', Log::Level::FATAL);
 #else // ENABLE_MYSQL

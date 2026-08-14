@@ -37,11 +37,11 @@
 #include "ssl/ssldefaults.h"
 #include "ssl/sslsession.h"
 using namespace std;
-using namespace boost::asio::ip;
-using namespace boost::asio::ssl;
+using namespace asio::ip;
+using namespace asio::ssl;
 
 #ifdef ENABLE_REUSE_PORT
-typedef boost::asio::detail::socket_option::boolean<SOL_SOCKET, SO_REUSEPORT> reuse_port;
+typedef asio::detail::socket_option::boolean<SOL_SOCKET, SO_REUSEPORT> reuse_port;
 #endif // ENABLE_REUSE_PORT
 
 Service::Service(Config &config, bool test) :
@@ -116,7 +116,7 @@ Service::Service(Config &config, bool test) :
             plain_http_response = string(istreambuf_iterator<char>(ifs), istreambuf_iterator<char>());
         }
         if (config.ssl.dhparam.empty()) {
-            ssl_context.use_tmp_dh(boost::asio::const_buffer(SSLDefaults::g_dh2048_sz, SSLDefaults::g_dh2048_sz_size));
+            ssl_context.use_tmp_dh(asio::const_buffer(SSLDefaults::g_dh2048_sz, SSLDefaults::g_dh2048_sz_size));
         } else {
             ssl_context.use_tmp_dh_file(config.ssl.dhparam);
         }
@@ -205,11 +205,7 @@ Service::Service(Config &config, bool test) :
                 ssl_context.load_verify_file(config.ssl.cert);
             }
             if (config.ssl.verify_hostname) {
-#if BOOST_VERSION >= 107300
                 ssl_context.set_verify_callback(host_name_verification(config.ssl.sni));
-#else
-                ssl_context.set_verify_callback(rfc2818_verification(config.ssl.sni));
-#endif
             }
             X509_VERIFY_PARAM *param = X509_VERIFY_PARAM_new();
             X509_VERIFY_PARAM_set_flags(param, X509_V_FLAG_PARTIAL_CHAIN);
@@ -247,12 +243,12 @@ Service::Service(Config &config, bool test) :
             socket_acceptor.set_option(tcp::no_delay(true));
         }
         if (config.tcp.keep_alive) {
-            socket_acceptor.set_option(boost::asio::socket_base::keep_alive(true));
+            socket_acceptor.set_option(asio::socket_base::keep_alive(true));
         }
         if (config.tcp.fast_open) {
 #ifdef TCP_FASTOPEN
-            using fastopen = boost::asio::detail::socket_option::integer<IPPROTO_TCP, TCP_FASTOPEN>;
-            boost::system::error_code ec;
+            using fastopen = asio::detail::socket_option::integer<IPPROTO_TCP, TCP_FASTOPEN>;
+            std::error_code ec;
             socket_acceptor.set_option(fastopen(config.tcp.fast_open_qlen), ec);
 #else // TCP_FASTOPEN
             Log::log_with_date_time("TCP_FASTOPEN is not supported", Log::Level::WARN);
@@ -296,7 +292,7 @@ void Service::run() {
 }
 
 void Service::stop() {
-    boost::system::error_code ec;
+    std::error_code ec;
     socket_acceptor.cancel(ec);
     if (udp_socket.is_open()) {
         udp_socket.cancel(ec);
@@ -316,13 +312,13 @@ void Service::async_accept() {
     } else {
         session = make_shared<ClientSession>(config, io_context, ssl_context);
     }
-    socket_acceptor.async_accept(session->accept_socket(), [this, session](const boost::system::error_code error) {
-        if (error == boost::asio::error::operation_aborted) {
+    socket_acceptor.async_accept(session->accept_socket(), [this, session](const std::error_code error) {
+        if (error == asio::error::operation_aborted) {
             // got cancel signal, stop calling myself
             return;
         }
         if (!error) {
-            boost::system::error_code ec;
+            std::error_code ec;
             auto endpoint = session->accept_socket().remote_endpoint(ec);
             if (!ec) {
                 Log::log_with_endpoint(endpoint, "incoming connection");
@@ -334,8 +330,8 @@ void Service::async_accept() {
 }
 
 void Service::udp_async_read() {
-    udp_socket.async_receive_from(boost::asio::buffer(udp_read_buf.data(), MAX_LENGTH), udp_recv_endpoint, [this](const boost::system::error_code error, size_t length) {
-        if (error == boost::asio::error::operation_aborted) {
+    udp_socket.async_receive_from(asio::buffer(udp_read_buf.data(), MAX_LENGTH), udp_recv_endpoint, [this](const std::error_code error, size_t length) {
+        if (error == asio::error::operation_aborted) {
             // got cancel signal, stop calling myself
             return;
         }
@@ -357,9 +353,9 @@ void Service::udp_async_read() {
         }
         Log::log_with_endpoint(tcp::endpoint(udp_recv_endpoint.address(), udp_recv_endpoint.port()), "new UDP session");
         auto session = make_shared<UDPForwardSession>(config, io_context, ssl_context, udp_recv_endpoint, [this](const udp::endpoint &endpoint, const string &data) {
-            boost::system::error_code ec;
-            udp_socket.send_to(boost::asio::buffer(data), endpoint, 0, ec);
-            if (ec == boost::asio::error::no_permission) {
+            std::error_code ec;
+            udp_socket.send_to(asio::buffer(data), endpoint, 0, ec);
+            if (ec == asio::error::no_permission) {
                 Log::log_with_endpoint(tcp::endpoint(endpoint.address(), endpoint.port()), "dropped a UDP packet due to firewall policy or rate limit");
             } else if (ec) {
                 throw runtime_error(ec.message());
@@ -372,7 +368,7 @@ void Service::udp_async_read() {
     });
 }
 
-boost::asio::io_context &Service::service() {
+asio::io_context &Service::service() {
     return io_context;
 }
 
@@ -381,7 +377,7 @@ void Service::reload_cert() {
         Log::log_with_date_time("reloading certificate and private key. . . ", Log::Level::WARN);
         ssl_context.use_certificate_chain_file(config.ssl.cert);
         ssl_context.use_private_key_file(config.ssl.key, context::pem);
-        boost::system::error_code ec;
+        std::error_code ec;
         socket_acceptor.cancel(ec);
         async_accept();
         Log::log_with_date_time("certificate and private key reloaded", Log::Level::WARN);

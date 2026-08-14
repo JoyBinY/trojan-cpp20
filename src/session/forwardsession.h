@@ -21,7 +21,7 @@
 
 #include <string>
 #include <string_view>
-#include <boost/asio/ssl.hpp>
+#include <asio/ssl.hpp>
 #include "session.h"
 
 class ForwardSession : public Session {
@@ -32,8 +32,8 @@ private:
         DESTROY
     } status;
     bool first_packet_recv = false;
-    boost::asio::ip::tcp::socket in_socket;
-    boost::asio::ssl::stream<boost::asio::ip::tcp::socket> out_socket;
+    asio::ip::tcp::socket in_socket;
+    asio::ssl::stream<asio::ip::tcp::socket> out_socket;
     void destroy();
     void in_async_read();
     void in_async_write(std::string_view data);
@@ -44,7 +44,7 @@ private:
     void out_recv(std::string_view data);
     void out_sent();
 public:
-    ForwardSession(const Config &config, boost::asio::io_context &io_context, boost::asio::ssl::context &ssl_context);
-    boost::asio::ip::tcp::socket& accept_socket() override;
+    ForwardSession(const Config &config, asio::io_context &io_context, asio::ssl::context &ssl_context);
+    asio::ip::tcp::socket& accept_socket() override;
     void start() override;
 };
