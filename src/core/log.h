@@ -17,11 +17,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _LOG_H_
-#define _LOG_H_
+#pragma once
 
 #include <cstdio>
 #include <string>
+#include <string_view>
+#include <functional>
 #include <boost/asio/ip/tcp.hpp>
 
 #ifdef ERROR // windows.h
@@ -30,7 +31,7 @@
 
 class Log {
 public:
-    enum Level {
+    enum class Level : int {
         ALL = 0,
         INFO = 1,
         WARN = 2,
@@ -38,19 +39,17 @@ public:
         FATAL = 4,
         OFF = 5
     };
-    typedef std::function<void(const std::string &, Level)> LogCallback;
+    using LogCallback = std::function<void(const std::string &, Level)>;
     static Level level;
     static FILE *keylog;
-    static void log(const std::string &message, Level level = ALL);
-    static void log_with_date_time(const std::string &message, Level level = ALL);
-    static void log_with_endpoint(const boost::asio::ip::tcp::endpoint &endpoint, const std::string &message, Level level = ALL);
-    static void redirect(const std::string &filename);
-    static void redirect_keylog(const std::string &filename);
+    static void log(std::string_view message, Level level = Level::ALL);
+    static void log_with_date_time(std::string_view message, Level level = Level::ALL);
+    static void log_with_endpoint(const boost::asio::ip::tcp::endpoint &endpoint, std::string_view message, Level level = Level::ALL);
+    static void redirect(std::string_view filename);
+    static void redirect_keylog(std::string_view filename);
     static void set_callback(LogCallback cb);
     static void reset();
 private:
     static FILE *output_stream;
     static LogCallback log_callback;
 };
-
-#endif // _LOG_H_

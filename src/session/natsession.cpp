@@ -37,8 +37,7 @@ using namespace boost::asio::ssl;
 
 NATSession::NATSession(const Config &config, boost::asio::io_context &io_context, context &ssl_context) :
     Session(config, io_context),
-    status(CONNECT),
-    first_packet_recv(false),
+    status(Status::CONNECT),
     in_socket(io_context),
     out_socket(io_context, ssl_context) {}
 
@@ -50,30 +49,29 @@ pair<string, uint16_t> NATSession::get_target_endpoint() {
 #ifdef ENABLE_NAT
     int fd = in_socket.native_handle();
     // Taken from https://github.com/shadowsocks/shadowsocks-libev/blob/v3.3.1/src/redir.c.
-    sockaddr_storage destaddr;
-    memset(&destaddr, 0, sizeof(sockaddr_storage));
+    sockaddr_storage destaddr{};
     socklen_t socklen = sizeof(destaddr);
     int error = getsockopt(fd, SOL_IPV6, IP6T_SO_ORIGINAL_DST, &destaddr, &socklen);
     if (error) {
         error = getsockopt(fd, SOL_IP, SO_ORIGINAL_DST, &destaddr, &socklen);
         if (error) {
-            return make_pair("", 0);
+            return {"", 0};
         }
     }
     char ipstr[INET6_ADDRSTRLEN];
     uint16_t port;
     if (destaddr.ss_family == AF_INET) {
-        auto *sa = (sockaddr_in*) &destaddr;
+        auto *sa = reinterpret_cast<sockaddr_in*>(&destaddr);
         inet_ntop(AF_INET, &(sa->sin_addr), ipstr, INET_ADDRSTRLEN);
         port = ntohs(sa->sin_port);
     } else {
-        auto *sa = (sockaddr_in6*) &destaddr;
+        auto *sa = reinterpret_cast<sockaddr_in6*>(&destaddr);
         inet_ntop(AF_INET6, &(sa->sin6_addr), ipstr, INET6_ADDRSTRLEN);
         port = ntohs(sa->sin6_port);
     }
-    return make_pair(ipstr, port);
+    return {ipstr, port};
 #else // ENABLE_NAT
-    return make_pair("", 0);
+    return {"", 0};
 #endif // ENABLE_NAT
 }
 
@@ -95,25 +93,23 @@ void NATSession::start() {
             SSL_set_session(ssl, session);
         }
     }
-    auto target_endpoint = get_target_endpoint();
-    string &target_addr = target_endpoint.first;
-    uint16_t target_port = target_endpoint.second;
+    auto [target_addr, target_port] = get_target_endpoint();
     if (target_port == 0) {
         destroy();
         return;
     }
     out_write_buf = TrojanRequest::generate(config.password.cbegin()->first, target_addr, target_port, true);
     in_async_read();
-    Log::log_with_endpoint(in_endpoint, "forwarding to " + target_addr + ':' + to_string(target_port) + " via " + config.remote_addr + ':' + to_string(config.remote_port), Log::INFO);
+    Log::log_with_endpoint(in_endpoint, "forwarding to " + target_addr + ':' + to_string(target_port) + " via " + config.remote_addr + ':' + to_string(config.remote_port), Log::Level::INFO);
     auto self = shared_from_this();
     resolver.async_resolve(config.remote_addr, to_string(config.remote_port), [this, self](const boost::system::error_code error, const tcp::resolver::results_type& results) {
         if (error || results.empty()) {
-            Log::log_with_endpoint(in_endpoint, "cannot resolve remote server hostname " + config.remote_addr + ": " + error.message(), Log::ERROR);
+            Log::log_with_endpoint(in_endpoint, "cannot resolve remote server hostname " + config.remote_addr + ": " + error.message(), Log::Level::ERROR);
             destroy();
             return;
         }
         auto iterator = results.begin();
-        Log::log_with_endpoint(in_endpoint, config.remote_addr + " is resolved to " + iterator->endpoint().address().to_string(), Log::ALL);
+        Log::log_with_endpoint(in_endpoint, config.remote_addr + " is resolved to " + iterator->endpoint().address().to_string(), Log::Level::ALL);
         boost::system::error_code ec;
         out_socket.next_layer().open(iterator->endpoint().protocol(), ec);
         if (ec) {
@@ -135,13 +131,13 @@ void NATSession::start() {
 #endif // TCP_FASTOPEN_CONNECT
         out_socket.next_layer().async_connect(*iterator, [this, self](const boost::system::error_code error) {
             if (error) {
-                Log::log_with_endpoint(in_endpoint, "cannot establish connection to remote server " + config.remote_addr + ':' + to_string(config.remote_port) + ": " + error.message(), Log::ERROR);
+                Log::log_with_endpoint(in_endpoint, "cannot establish connection to remote server " + config.remote_addr + ':' + to_string(config.remote_port) + ": " + error.message(), Log::Level::ERROR);
                 destroy();
                 return;
             }
             out_socket.async_handshake(stream_base::client, [this, self](const boost::system::error_code error) {
                 if (error) {
-                    Log::log_with_endpoint(in_endpoint, "SSL handshake failed with " + config.remote_addr + ':' + to_string(config.remote_port) + ": " + error.message(), Log::ERROR);
+                    Log::log_with_endpoint(in_endpoint, "SSL handshake failed with " + config.remote_addr + ':' + to_string(config.remote_port) + ": " + error.message(), Log::Level::ERROR);
                     destroy();
                     return;
                 }
@@ -158,7 +154,7 @@ void NATSession::start() {
                 if (!first_packet_recv) {
                     in_socket.cancel(ec);
                 }
-                status = FORWARD;
+                status = Status::FORWARD;
                 out_async_read();
                 out_async_write(out_write_buf);
             });
@@ -168,7 +164,7 @@ void NATSession::start() {
 
 void NATSession::in_async_read() {
     auto self = shared_from_this();
-    in_socket.async_read_some(boost::asio::buffer(in_read_buf, MAX_LENGTH), [this, self](const boost::system::error_code error, size_t length) {
+    in_socket.async_read_some(boost::asio::buffer(in_read_buf.data(), MAX_LENGTH), [this, self](const boost::system::error_code error, size_t length) {
         if (error == boost::asio::error::operation_aborted) {
             return;
         }
@@ -176,11 +172,11 @@ void NATSession::in_async_read() {
             destroy();
             return;
         }
-        in_recv(string((const char*)in_read_buf, length));
+        in_recv(string_view(reinterpret_cast<const char*>(in_read_buf.data()), length));
     });
 }
 
-void NATSession::in_async_write(const string &data) {
+void NATSession::in_async_write(string_view data) {
     auto self = shared_from_this();
     auto data_copy = make_shared<string>(data);
     boost::asio::async_write(in_socket, boost::asio::buffer(*data_copy), [this, self, data_copy](const boost::system::error_code error, size_t) {
@@ -194,16 +190,16 @@ void NATSession::in_async_write(const string &data) {
 
 void NATSession::out_async_read() {
     auto self = shared_from_this();
-    out_socket.async_read_some(boost::asio::buffer(out_read_buf, MAX_LENGTH), [this, self](const boost::system::error_code error, size_t length) {
+    out_socket.async_read_some(boost::asio::buffer(out_read_buf.data(), MAX_LENGTH), [this, self](const boost::system::error_code error, size_t length) {
         if (error) {
             destroy();
             return;
         }
-        out_recv(string((const char*)out_read_buf, length));
+        out_recv(string_view(reinterpret_cast<const char*>(out_read_buf.data()), length));
     });
 }
 
-void NATSession::out_async_write(const string &data) {
+void NATSession::out_async_write(string_view data) {
     auto self = shared_from_this();
     auto data_copy = make_shared<string>(data);
     boost::asio::async_write(out_socket, boost::asio::buffer(*data_copy), [this, self, data_copy](const boost::system::error_code error, size_t) {
@@ -215,42 +211,42 @@ void NATSession::out_async_write(const string &data) {
     });
 }
 
-void NATSession::in_recv(const string &data) {
-    if (status == CONNECT) {
-        sent_len += data.length();
+void NATSession::in_recv(string_view data) {
+    if (status == Status::CONNECT) {
+        sent_len += data.size();
         first_packet_recv = true;
-        out_write_buf += data;
-    } else if (status == FORWARD) {
-        sent_len += data.length();
+        out_write_buf.append(data);
+    } else if (status == Status::FORWARD) {
+        sent_len += data.size();
         out_async_write(data);
     }
 }
 
 void NATSession::in_sent() {
-    if (status == FORWARD) {
+    if (status == Status::FORWARD) {
         out_async_read();
     }
 }
 
-void NATSession::out_recv(const string &data) {
-    if (status == FORWARD) {
-        recv_len += data.length();
+void NATSession::out_recv(string_view data) {
+    if (status == Status::FORWARD) {
+        recv_len += data.size();
         in_async_write(data);
     }
 }
 
 void NATSession::out_sent() {
-    if (status == FORWARD) {
+    if (status == Status::FORWARD) {
         in_async_read();
     }
 }
 
 void NATSession::destroy() {
-    if (status == DESTROY) {
+    if (status == Status::DESTROY) {
         return;
     }
-    status = DESTROY;
-    Log::log_with_endpoint(in_endpoint, "disconnected, " + to_string(recv_len) + " bytes received, " + to_string(sent_len) + " bytes sent, lasted for " + to_string(time(nullptr) - start_time) + " seconds", Log::INFO);
+    status = Status::DESTROY;
+    Log::log_with_endpoint(in_endpoint, "disconnected, " + to_string(recv_len) + " bytes received, " + to_string(sent_len) + " bytes sent, lasted for " + to_string(time(nullptr) - start_time) + " seconds", Log::Level::INFO);
     boost::system::error_code ec;
     resolver.cancel();
     if (in_socket.is_open()) {

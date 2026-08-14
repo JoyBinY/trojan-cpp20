@@ -17,9 +17,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _AUTHENTICATOR_H_
-#define _AUTHENTICATOR_H_
+#pragma once
 
+#include <cstdint>
+#include <string>
+#include <string_view>
 #ifdef ENABLE_MYSQL
 #include <mysql.h>
 #endif // ENABLE_MYSQL
@@ -30,15 +32,11 @@ private:
 #ifdef ENABLE_MYSQL
     MYSQL con{};
 #endif // ENABLE_MYSQL
-    enum {
-        PASSWORD_LENGTH=56
-    };
-    static bool is_valid_password(const std::string &password);
+    static constexpr int PASSWORD_LENGTH = 56;
+    [[nodiscard]] static bool is_valid_password(std::string_view password);
 public:
     explicit Authenticator(const Config &config);
-    bool auth(const std::string &password);
-    void record(const std::string &password, uint64_t download, uint64_t upload);
+    [[nodiscard]] bool auth(std::string_view password);
+    void record(std::string_view password, uint64_t download, uint64_t upload);
     ~Authenticator();
 };
-
-#endif // _AUTHENTICATOR_H_

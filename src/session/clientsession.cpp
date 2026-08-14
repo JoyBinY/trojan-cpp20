@@ -27,8 +27,7 @@ using namespace boost::asio::ssl;
 
 ClientSession::ClientSession(const Config &config, boost::asio::io_context &io_context, context &ssl_context) :
     Session(config, io_context),
-    status(HANDSHAKE),
-    first_packet_recv(false),
+    status(Status::HANDSHAKE),
     in_socket(io_context),
     out_socket(io_context, ssl_context) {}
 
@@ -59,7 +58,7 @@ void ClientSession::start() {
 
 void ClientSession::in_async_read() {
     auto self = shared_from_this();
-    in_socket.async_read_some(boost::asio::buffer(in_read_buf, MAX_LENGTH), [this, self](const boost::system::error_code error, size_t length) {
+    in_socket.async_read_some(boost::asio::buffer(in_read_buf.data(), MAX_LENGTH), [this, self](const boost::system::error_code error, size_t length) {
         if (error == boost::asio::error::operation_aborted) {
             return;
         }
@@ -67,11 +66,11 @@ void ClientSession::in_async_read() {
             destroy();
             return;
         }
-        in_recv(string((const char*)in_read_buf, length));
+        in_recv(string_view(reinterpret_cast<const char*>(in_read_buf.data()), length));
     });
 }
 
-void ClientSession::in_async_write(const string &data) {
+void ClientSession::in_async_write(string_view data) {
     auto self = shared_from_this();
     auto data_copy = make_shared<string>(data);
     boost::asio::async_write(in_socket, boost::asio::buffer(*data_copy), [this, self, data_copy](const boost::system::error_code error, size_t) {
@@ -85,16 +84,16 @@ void ClientSession::in_async_write(const string &data) {
 
 void ClientSession::out_async_read() {
     auto self = shared_from_this();
-    out_socket.async_read_some(boost::asio::buffer(out_read_buf, MAX_LENGTH), [this, self](const boost::system::error_code error, size_t length) {
+    out_socket.async_read_some(boost::asio::buffer(out_read_buf.data(), MAX_LENGTH), [this, self](const boost::system::error_code error, size_t length) {
         if (error) {
             destroy();
             return;
         }
-        out_recv(string((const char*)out_read_buf, length));
+        out_recv(string_view(reinterpret_cast<const char*>(out_read_buf.data()), length));
     });
 }
 
-void ClientSession::out_async_write(const string &data) {
+void ClientSession::out_async_write(string_view data) {
     auto self = shared_from_this();
     auto data_copy = make_shared<string>(data);
     boost::asio::async_write(out_socket, boost::asio::buffer(*data_copy), [this, self, data_copy](const boost::system::error_code error, size_t) {
@@ -108,7 +107,7 @@ void ClientSession::out_async_write(const string &data) {
 
 void ClientSession::udp_async_read() {
     auto self = shared_from_this();
-    udp_socket.async_receive_from(boost::asio::buffer(udp_read_buf, MAX_LENGTH), udp_recv_endpoint, [this, self](const boost::system::error_code error, size_t length) {
+    udp_socket.async_receive_from(boost::asio::buffer(udp_read_buf.data(), MAX_LENGTH), udp_recv_endpoint, [this, self](const boost::system::error_code error, size_t length) {
         if (error == boost::asio::error::operation_aborted) {
             return;
         }
@@ -116,11 +115,11 @@ void ClientSession::udp_async_read() {
             destroy();
             return;
         }
-        udp_recv(string((const char*)udp_read_buf, length), udp_recv_endpoint);
+        udp_recv(string_view(reinterpret_cast<const char*>(udp_read_buf.data()), length), udp_recv_endpoint);
     });
 }
 
-void ClientSession::udp_async_write(const string &data, const udp::endpoint &endpoint) {
+void ClientSession::udp_async_write(string_view data, const udp::endpoint &endpoint) {
     auto self = shared_from_this();
     auto data_copy = make_shared<string>(data);
     udp_socket.async_send_to(boost::asio::buffer(*data_copy), endpoint, [this, self, data_copy](const boost::system::error_code error, size_t) {
@@ -132,45 +131,45 @@ void ClientSession::udp_async_write(const string &data, const udp::endpoint &end
     });
 }
 
-void ClientSession::in_recv(const string &data) {
+void ClientSession::in_recv(string_view data) {
     switch (status) {
-        case HANDSHAKE: {
-            if (data.length() < 2 || data[0] != 5 || data.length() != (unsigned int)(unsigned char)data[1] + 2) {
-                Log::log_with_endpoint(in_endpoint, "unknown protocol", Log::ERROR);
+        case Status::HANDSHAKE: {
+            if (data.size() < 2 || data[0] != 5 || data.size() != static_cast<unsigned int>(uint8_t(data[1])) + 2) {
+                Log::log_with_endpoint(in_endpoint, "unknown protocol", Log::Level::ERROR);
                 destroy();
                 return;
             }
             bool has_method = false;
-            for (int i = 2; i < data[1] + 2; ++i) {
+            for (size_t i = 2; i < static_cast<size_t>(uint8_t(data[1])) + 2; ++i) {
                 if (data[i] == 0) {
                     has_method = true;
                     break;
                 }
             }
             if (!has_method) {
-                Log::log_with_endpoint(in_endpoint, "unsupported auth method", Log::ERROR);
+                Log::log_with_endpoint(in_endpoint, "unsupported auth method", Log::Level::ERROR);
                 in_async_write(string("\x05\xff", 2));
-                status = INVALID;
+                status = Status::INVALID;
                 return;
             }
             in_async_write(string("\x05\x00", 2));
             break;
         }
-        case REQUEST: {
-            if (data.length() < 7 || data[0] != 5 || data[2] != 0) {
-                Log::log_with_endpoint(in_endpoint, "bad request", Log::ERROR);
+        case Status::REQUEST: {
+            if (data.size() < 7 || data[0] != 5 || data[2] != 0) {
+                Log::log_with_endpoint(in_endpoint, "bad request", Log::Level::ERROR);
                 destroy();
                 return;
             }
-            out_write_buf = config.password.cbegin()->first + "\r\n" + data[1] + data.substr(3) + "\r\n";
+            out_write_buf = config.password.cbegin()->first + "\r\n" + data[1] + string(data.substr(3)) + "\r\n";
             TrojanRequest req;
             if (req.parse(out_write_buf) == -1) {
-                Log::log_with_endpoint(in_endpoint, "unsupported command", Log::ERROR);
+                Log::log_with_endpoint(in_endpoint, "unsupported command", Log::Level::ERROR);
                 in_async_write(string("\x05\x07\x00\x01\x00\x00\x00\x00\x00\x00", 10));
-                status = INVALID;
+                status = Status::INVALID;
                 return;
             }
-            is_udp = req.command == TrojanRequest::UDP_ASSOCIATE;
+            is_udp = req.command == TrojanRequest::Command::UDP_ASSOCIATE;
             if (is_udp) {
                 udp::endpoint bindpoint(in_socket.local_endpoint().address(), 0);
                 boost::system::error_code ec;
@@ -180,27 +179,27 @@ void ClientSession::in_recv(const string &data) {
                     return;
                 }
                 udp_socket.bind(bindpoint);
-                Log::log_with_endpoint(in_endpoint, "requested UDP associate to " + req.address.address + ':' + to_string(req.address.port) + ", open UDP socket " + udp_socket.local_endpoint().address().to_string() + ':' + to_string(udp_socket.local_endpoint().port()) + " for relay", Log::INFO);
+                Log::log_with_endpoint(in_endpoint, "requested UDP associate to " + req.address.address + ':' + to_string(req.address.port) + ", open UDP socket " + udp_socket.local_endpoint().address().to_string() + ':' + to_string(udp_socket.local_endpoint().port()) + " for relay", Log::Level::INFO);
                 in_async_write(string("\x05\x00\x00", 3) + SOCKS5Address::generate(udp_socket.local_endpoint()));
             } else {
-                Log::log_with_endpoint(in_endpoint, "requested connection to " + req.address.address + ':' + to_string(req.address.port), Log::INFO);
+                Log::log_with_endpoint(in_endpoint, "requested connection to " + req.address.address + ':' + to_string(req.address.port), Log::Level::INFO);
                 in_async_write(string("\x05\x00\x00\x01\x00\x00\x00\x00\x00\x00", 10));
             }
             break;
         }
-        case CONNECT: {
-            sent_len += data.length();
+        case Status::CONNECT: {
+            sent_len += data.size();
             first_packet_recv = true;
-            out_write_buf += data;
+            out_write_buf.append(data);
             break;
         }
-        case FORWARD: {
-            sent_len += data.length();
+        case Status::FORWARD: {
+            sent_len += data.size();
             out_async_write(data);
             break;
         }
-        case UDP_FORWARD: {
-            Log::log_with_endpoint(in_endpoint, "unexpected data from TCP port", Log::ERROR);
+        case Status::UDP_FORWARD: {
+            Log::log_with_endpoint(in_endpoint, "unexpected data from TCP port", Log::Level::ERROR);
             destroy();
             break;
         }
@@ -210,13 +209,13 @@ void ClientSession::in_recv(const string &data) {
 
 void ClientSession::in_sent() {
     switch (status) {
-        case HANDSHAKE: {
-            status = REQUEST;
+        case Status::HANDSHAKE: {
+            status = Status::REQUEST;
             in_async_read();
             break;
         }
-        case REQUEST: {
-            status = CONNECT;
+        case Status::REQUEST: {
+            status = Status::CONNECT;
             in_async_read();
             if (is_udp) {
                 udp_async_read();
@@ -224,12 +223,12 @@ void ClientSession::in_sent() {
             auto self = shared_from_this();
             resolver.async_resolve(config.remote_addr, to_string(config.remote_port), [this, self](const boost::system::error_code error, const tcp::resolver::results_type& results) {
                 if (error || results.empty()) {
-                    Log::log_with_endpoint(in_endpoint, "cannot resolve remote server hostname " + config.remote_addr + ": " + error.message(), Log::ERROR);
+                    Log::log_with_endpoint(in_endpoint, "cannot resolve remote server hostname " + config.remote_addr + ": " + error.message(), Log::Level::ERROR);
                     destroy();
                     return;
                 }
                 auto iterator = results.begin();
-                Log::log_with_endpoint(in_endpoint, config.remote_addr + " is resolved to " + iterator->endpoint().address().to_string(), Log::ALL);
+                Log::log_with_endpoint(in_endpoint, config.remote_addr + " is resolved to " + iterator->endpoint().address().to_string(), Log::Level::ALL);
                 boost::system::error_code ec;
                 out_socket.next_layer().open(iterator->endpoint().protocol(), ec);
                 if (ec) {
@@ -251,13 +250,13 @@ void ClientSession::in_sent() {
 #endif // TCP_FASTOPEN_CONNECT
                 out_socket.next_layer().async_connect(*iterator, [this, self](const boost::system::error_code error) {
                     if (error) {
-                        Log::log_with_endpoint(in_endpoint, "cannot establish connection to remote server " + config.remote_addr + ':' + to_string(config.remote_port) + ": " + error.message(), Log::ERROR);
+                        Log::log_with_endpoint(in_endpoint, "cannot establish connection to remote server " + config.remote_addr + ':' + to_string(config.remote_port) + ": " + error.message(), Log::Level::ERROR);
                         destroy();
                         return;
                     }
                     out_socket.async_handshake(stream_base::client, [this, self](const boost::system::error_code error) {
                         if (error) {
-                            Log::log_with_endpoint(in_endpoint, "SSL handshake failed with " + config.remote_addr + ':' + to_string(config.remote_port) + ": " + error.message(), Log::ERROR);
+                            Log::log_with_endpoint(in_endpoint, "SSL handshake failed with " + config.remote_addr + ':' + to_string(config.remote_port) + ": " + error.message(), Log::Level::ERROR);
                             destroy();
                             return;
                         }
@@ -275,12 +274,12 @@ void ClientSession::in_sent() {
                             if (!first_packet_recv) {
                                 udp_socket.cancel(ec);
                             }
-                            status = UDP_FORWARD;
+                            status = Status::UDP_FORWARD;
                         } else {
                             if (!first_packet_recv) {
                                 in_socket.cancel(ec);
                             }
-                            status = FORWARD;
+                            status = Status::FORWARD;
                         }
                         out_async_read();
                         out_async_write(out_write_buf);
@@ -289,11 +288,11 @@ void ClientSession::in_sent() {
             });
             break;
         }
-        case FORWARD: {
+        case Status::FORWARD: {
             out_async_read();
             break;
         }
-        case INVALID: {
+        case Status::INVALID: {
             destroy();
             break;
         }
@@ -301,61 +300,61 @@ void ClientSession::in_sent() {
     }
 }
 
-void ClientSession::out_recv(const string &data) {
-    if (status == FORWARD) {
-        recv_len += data.length();
+void ClientSession::out_recv(string_view data) {
+    if (status == Status::FORWARD) {
+        recv_len += data.size();
         in_async_write(data);
-    } else if (status == UDP_FORWARD) {
-        udp_data_buf += data;
+    } else if (status == Status::UDP_FORWARD) {
+        udp_data_buf.append(data);
         udp_sent();
     }
 }
 
 void ClientSession::out_sent() {
-    if (status == FORWARD) {
+    if (status == Status::FORWARD) {
         in_async_read();
-    } else if (status == UDP_FORWARD) {
+    } else if (status == Status::UDP_FORWARD) {
         udp_async_read();
     }
 }
 
-void ClientSession::udp_recv(const string &data, const udp::endpoint&) {
-    if (data.length() == 0) {
+void ClientSession::udp_recv(string_view data, const udp::endpoint&) {
+    if (data.empty()) {
         return;
     }
-    if (data.length() < 3 || data[0] || data[1] || data[2]) {
-        Log::log_with_endpoint(in_endpoint, "bad UDP packet", Log::ERROR);
+    if (data.size() < 3 || data[0] || data[1] || data[2]) {
+        Log::log_with_endpoint(in_endpoint, "bad UDP packet", Log::Level::ERROR);
         destroy();
         return;
     }
     SOCKS5Address address;
     size_t address_len;
-    bool is_addr_valid = address.parse(data.substr(3), address_len);
+    bool is_addr_valid = address.parse(string(data.substr(3)), address_len);
     if (!is_addr_valid) {
-        Log::log_with_endpoint(in_endpoint, "bad UDP packet", Log::ERROR);
+        Log::log_with_endpoint(in_endpoint, "bad UDP packet", Log::Level::ERROR);
         destroy();
         return;
     }
-    size_t length = data.length() - 3 - address_len;
+    size_t length = data.size() - 3 - address_len;
     Log::log_with_endpoint(in_endpoint, "sent a UDP packet of length " + to_string(length) + " bytes to " + address.address + ':' + to_string(address.port));
-    string packet = data.substr(3, address_len) + char(uint8_t(length >> 8)) + char(uint8_t(length & 0xFF)) + "\r\n" + data.substr(address_len + 3);
+    string packet = string(data.substr(3, address_len)) + static_cast<char>(uint8_t(length >> 8)) + static_cast<char>(uint8_t(length & 0xFF)) + "\r\n" + string(data.substr(address_len + 3));
     sent_len += length;
-    if (status == CONNECT) {
+    if (status == Status::CONNECT) {
         first_packet_recv = true;
         out_write_buf += packet;
-    } else if (status == UDP_FORWARD) {
+    } else if (status == Status::UDP_FORWARD) {
         out_async_write(packet);
     }
 }
 
 void ClientSession::udp_sent() {
-    if (status == UDP_FORWARD) {
+    if (status == Status::UDP_FORWARD) {
         UDPPacket packet;
         size_t packet_len;
         bool is_packet_valid = packet.parse(udp_data_buf, packet_len);
         if (!is_packet_valid) {
             if (udp_data_buf.length() > MAX_LENGTH) {
-                Log::log_with_endpoint(in_endpoint, "UDP packet too long", Log::ERROR);
+                Log::log_with_endpoint(in_endpoint, "UDP packet too long", Log::Level::ERROR);
                 destroy();
                 return;
             }
@@ -367,7 +366,7 @@ void ClientSession::udp_sent() {
         size_t address_len;
         bool is_addr_valid = address.parse(udp_data_buf, address_len);
         if (!is_addr_valid) {
-            Log::log_with_endpoint(in_endpoint, "udp_sent: invalid UDP packet address", Log::ERROR);
+            Log::log_with_endpoint(in_endpoint, "udp_sent: invalid UDP packet address", Log::Level::ERROR);
             destroy();
             return;
         }
@@ -379,11 +378,11 @@ void ClientSession::udp_sent() {
 }
 
 void ClientSession::destroy() {
-    if (status == DESTROY) {
+    if (status == Status::DESTROY) {
         return;
     }
-    status = DESTROY;
-    Log::log_with_endpoint(in_endpoint, "disconnected, " + to_string(recv_len) + " bytes received, " + to_string(sent_len) + " bytes sent, lasted for " + to_string(time(nullptr) - start_time) + " seconds", Log::INFO);
+    status = Status::DESTROY;
+    Log::log_with_endpoint(in_endpoint, "disconnected, " + to_string(recv_len) + " bytes received, " + to_string(sent_len) + " bytes sent, lasted for " + to_string(time(nullptr) - start_time) + " seconds", Log::Level::INFO);
     boost::system::error_code ec;
     resolver.cancel();
     if (in_socket.is_open()) {

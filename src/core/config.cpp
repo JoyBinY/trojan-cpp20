@@ -21,19 +21,21 @@
 #include <cstdlib>
 #include <sstream>
 #include <stdexcept>
+#include <array>
 #include <boost/property_tree/json_parser.hpp>
 #include <openssl/evp.h>
 using namespace std;
 using namespace boost::property_tree;
 
-void Config::load(const string &filename) {
+void Config::load(string_view filename) {
     ptree tree;
-    read_json(filename, tree);
+    read_json(string(filename), tree);
     populate(tree);
 }
 
-void Config::populate(const string &JSON) {
-    istringstream s(JSON);
+void Config::populate(string_view JSON) {
+    string json_str(JSON);
+    istringstream s{json_str};
     ptree tree;
     read_json(s, tree);
     populate(tree);
@@ -42,13 +44,13 @@ void Config::populate(const string &JSON) {
 void Config::populate(const ptree &tree) {
     string rt = tree.get("run_type", string("client"));
     if (rt == "server") {
-        run_type = SERVER;
+        run_type = RunType::SERVER;
     } else if (rt == "forward") {
-        run_type = FORWARD;
+        run_type = RunType::FORWARD;
     } else if (rt == "nat") {
-        run_type = NAT;
+        run_type = RunType::NAT;
     } else if (rt == "client") {
-        run_type = CLIENT;
+        run_type = RunType::CLIENT;
     } else {
         throw runtime_error("wrong run_type in config file");
     }
@@ -58,9 +60,9 @@ void Config::populate(const ptree &tree) {
     remote_port = tree.get("remote_port", uint16_t());
     target_addr = tree.get("target_addr", string());
     target_port = tree.get("target_port", uint16_t());
-    map<string, string>().swap(password);
+    password.clear();
     if (tree.get_child_optional("password")) {
-        for (auto& item: tree.get_child("password")) {
+        for (const auto& item : tree.get_child("password")) {
             string p = item.second.get_value<string>();
             password[SHA224(p)] = p;
         }
@@ -78,15 +80,15 @@ void Config::populate(const ptree &tree) {
     ssl.sni = tree.get("ssl.sni", string());
     ssl.alpn = "";
     if (tree.get_child_optional("ssl.alpn")) {
-        for (auto& item: tree.get_child("ssl.alpn")) {
+        for (const auto& item : tree.get_child("ssl.alpn")) {
             string proto = item.second.get_value<string>();
-            ssl.alpn += (char)((unsigned char)(proto.length()));
+            ssl.alpn += static_cast<char>(static_cast<unsigned char>(proto.length()));
             ssl.alpn += proto;
         }
     }
-    map<string, uint16_t>().swap(ssl.alpn_port_override);
+    ssl.alpn_port_override.clear();
     if (tree.get_child_optional("ssl.alpn_port_override")) {
-        for (auto& item: tree.get_child("ssl.alpn_port_override")) {
+        for (const auto& item : tree.get_child("ssl.alpn_port_override")) {
             ssl.alpn_port_override[item.first] = item.second.get_value<uint16_t>();
         }
     }
@@ -120,14 +122,14 @@ bool Config::sip003() {
     }
     populate(JSON);
     switch (run_type) {
-        case SERVER:
+        case RunType::SERVER:
             local_addr = getenv("SS_REMOTE_HOST");
             local_port = atoi(getenv("SS_REMOTE_PORT"));
             break;
-        case CLIENT:
-        case NAT:
+        case RunType::CLIENT:
+        case RunType::NAT:
             throw runtime_error("SIP003 with wrong run_type");
-        case FORWARD:
+        case RunType::FORWARD:
             remote_addr = getenv("SS_REMOTE_HOST");
             remote_port = atoi(getenv("SS_REMOTE_PORT"));
             local_addr = getenv("SS_LOCAL_HOST");
@@ -137,31 +139,33 @@ bool Config::sip003() {
     return true;
 }
 
-string Config::SHA224(const string &message) {
-    uint8_t digest[EVP_MAX_MD_SIZE];
-    char mdString[(EVP_MAX_MD_SIZE << 1) + 1];
-    unsigned int digest_len;
-    EVP_MD_CTX *ctx;
-    if ((ctx = EVP_MD_CTX_new()) == nullptr) {
+string Config::SHA224(string_view message) {
+    array<uint8_t, EVP_MAX_MD_SIZE> digest{};
+    unsigned int digest_len = 0;
+    EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+    if (ctx == nullptr) {
         throw runtime_error("could not create hash context");
     }
     if (!EVP_DigestInit_ex(ctx, EVP_sha224(), nullptr)) {
         EVP_MD_CTX_free(ctx);
         throw runtime_error("could not initialize hash context");
     }
-    if (!EVP_DigestUpdate(ctx, message.c_str(), message.length())) {
+    if (!EVP_DigestUpdate(ctx, message.data(), message.size())) {
         EVP_MD_CTX_free(ctx);
         throw runtime_error("could not update hash");
     }
-    if (!EVP_DigestFinal_ex(ctx, digest, &digest_len)) {
+    if (!EVP_DigestFinal_ex(ctx, digest.data(), &digest_len)) {
         EVP_MD_CTX_free(ctx);
         throw runtime_error("could not output hash");
     }
 
+    string result;
+    result.reserve(digest_len * 2);
     for (unsigned int i = 0; i < digest_len; ++i) {
-        sprintf(mdString + (i << 1), "%02x", (unsigned int)digest[i]);
+        char hex[3];
+        snprintf(hex, sizeof(hex), "%02x", static_cast<unsigned int>(digest[i]));
+        result += hex;
     }
-    mdString[digest_len << 1] = '\0';
     EVP_MD_CTX_free(ctx);
-    return string(mdString);
+    return result;
 }

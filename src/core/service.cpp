@@ -48,10 +48,9 @@ Service::Service(Config &config, bool test) :
     config(config),
     socket_acceptor(io_context),
     ssl_context(context::sslv23),
-    auth(nullptr),
     udp_socket(io_context) {
 #ifndef ENABLE_NAT
-    if (config.run_type == Config::NAT) {
+    if (config.run_type == Config::RunType::NAT) {
         throw runtime_error("NAT is not supported");
     }
 #endif // ENABLE_NAT
@@ -65,13 +64,13 @@ Service::Service(Config &config, bool test) :
 #ifdef ENABLE_REUSE_PORT
             socket_acceptor.set_option(reuse_port(true));
 #else  // ENABLE_REUSE_PORT
-            Log::log_with_date_time("SO_REUSEPORT is not supported", Log::WARN);
+            Log::log_with_date_time("SO_REUSEPORT is not supported", Log::Level::WARN);
 #endif // ENABLE_REUSE_PORT
         }
 
         socket_acceptor.bind(listen_endpoint);
         socket_acceptor.listen();
-        if (config.run_type == Config::FORWARD) {
+        if (config.run_type == Config::RunType::FORWARD) {
             auto udp_bind_endpoint = udp::endpoint(listen_endpoint.address(), listen_endpoint.port());
             udp_socket.open(udp_bind_endpoint.protocol());
             udp_socket.bind(udp_bind_endpoint);
@@ -83,7 +82,7 @@ Service::Service(Config &config, bool test) :
     if (!config.ssl.curves.empty()) {
         SSL_CTX_set1_curves_list(native_context, config.ssl.curves.c_str());
     }
-    if (config.run_type == Config::SERVER) {
+    if (config.run_type == Config::RunType::SERVER) {
         ssl_context.use_certificate_chain_file(config.ssl.cert);
         ssl_context.set_password_callback([this](size_t, context_base::password_purpose) {
             return this->config.ssl.key_password;
@@ -123,9 +122,9 @@ Service::Service(Config &config, bool test) :
         }
         if (config.mysql.enabled) {
 #ifdef ENABLE_MYSQL
-            auth = new Authenticator(config);
+            auth = make_unique<Authenticator>(config);
 #else // ENABLE_MYSQL
-            Log::log_with_date_time("MySQL is not supported", Log::WARN);
+            Log::log_with_date_time("MySQL is not supported", Log::Level::WARN);
 #endif // ENABLE_MYSQL
         }
     } else {
@@ -239,7 +238,7 @@ Service::Service(Config &config, bool test) :
 #ifdef ENABLE_TLS13_CIPHERSUITES
         SSL_CTX_set_ciphersuites(native_context, config.ssl.cipher_tls13.c_str());
 #else  // ENABLE_TLS13_CIPHERSUITES
-        Log::log_with_date_time("TLS1.3 ciphersuites are not supported", Log::WARN);
+        Log::log_with_date_time("TLS1.3 ciphersuites are not supported", Log::Level::WARN);
 #endif // ENABLE_TLS13_CIPHERSUITES
     }
 
@@ -256,10 +255,10 @@ Service::Service(Config &config, bool test) :
             boost::system::error_code ec;
             socket_acceptor.set_option(fastopen(config.tcp.fast_open_qlen), ec);
 #else // TCP_FASTOPEN
-            Log::log_with_date_time("TCP_FASTOPEN is not supported", Log::WARN);
+            Log::log_with_date_time("TCP_FASTOPEN is not supported", Log::Level::WARN);
 #endif // TCP_FASTOPEN
 #ifndef TCP_FASTOPEN_CONNECT
-            Log::log_with_date_time("TCP_FASTOPEN_CONNECT is not supported", Log::WARN);
+            Log::log_with_date_time("TCP_FASTOPEN_CONNECT is not supported", Log::Level::WARN);
 #endif // TCP_FASTOPEN_CONNECT
         }
     }
@@ -270,30 +269,30 @@ Service::Service(Config &config, bool test) :
             fflush(Log::keylog);
         });
 #else // ENABLE_SSL_KEYLOG
-        Log::log_with_date_time("SSL KeyLog is not supported", Log::WARN);
+        Log::log_with_date_time("SSL KeyLog is not supported", Log::Level::WARN);
 #endif // ENABLE_SSL_KEYLOG
     }
 }
 
 void Service::run() {
     async_accept();
-    if (config.run_type == Config::FORWARD) {
+    if (config.run_type == Config::RunType::FORWARD) {
         udp_async_read();
     }
     tcp::endpoint local_endpoint = socket_acceptor.local_endpoint();
     string rt;
-    if (config.run_type == Config::SERVER) {
+    if (config.run_type == Config::RunType::SERVER) {
         rt = "server";
-    } else if (config.run_type == Config::FORWARD) {
+    } else if (config.run_type == Config::RunType::FORWARD) {
         rt = "forward";
-    } else if (config.run_type == Config::NAT) {
+    } else if (config.run_type == Config::RunType::NAT) {
         rt = "nat";
     } else {
         rt = "client";
     }
-    Log::log_with_date_time(string("trojan service (") + rt + ") started at " + local_endpoint.address().to_string() + ':' + to_string(local_endpoint.port()), Log::WARN);
+    Log::log_with_date_time(string("trojan service (") + rt + ") started at " + local_endpoint.address().to_string() + ':' + to_string(local_endpoint.port()), Log::Level::WARN);
     io_context.run();
-    Log::log_with_date_time("trojan service stopped", Log::WARN);
+    Log::log_with_date_time("trojan service stopped", Log::Level::WARN);
 }
 
 void Service::stop() {
@@ -307,12 +306,12 @@ void Service::stop() {
 }
 
 void Service::async_accept() {
-    shared_ptr<Session>session(nullptr);
-    if (config.run_type == Config::SERVER) {
-        session = make_shared<ServerSession>(config, io_context, ssl_context, auth, plain_http_response);
-    } else if (config.run_type == Config::FORWARD) {
+    shared_ptr<Session> session(nullptr);
+    if (config.run_type == Config::RunType::SERVER) {
+        session = make_shared<ServerSession>(config, io_context, ssl_context, auth.get(), plain_http_response);
+    } else if (config.run_type == Config::RunType::FORWARD) {
         session = make_shared<ForwardSession>(config, io_context, ssl_context);
-    } else if (config.run_type == Config::NAT) {
+    } else if (config.run_type == Config::RunType::NAT) {
         session = make_shared<NATSession>(config, io_context, ssl_context);
     } else {
         session = make_shared<ClientSession>(config, io_context, ssl_context);
@@ -335,7 +334,7 @@ void Service::async_accept() {
 }
 
 void Service::udp_async_read() {
-    udp_socket.async_receive_from(boost::asio::buffer(udp_read_buf, MAX_LENGTH), udp_recv_endpoint, [this](const boost::system::error_code error, size_t length) {
+    udp_socket.async_receive_from(boost::asio::buffer(udp_read_buf.data(), MAX_LENGTH), udp_recv_endpoint, [this](const boost::system::error_code error, size_t length) {
         if (error == boost::asio::error::operation_aborted) {
             // got cancel signal, stop calling myself
             return;
@@ -344,7 +343,7 @@ void Service::udp_async_read() {
             stop();
             throw runtime_error(error.message());
         }
-        string data((const char *)udp_read_buf, length);
+        string data(reinterpret_cast<const char*>(udp_read_buf.data()), length);
         for (auto it = udp_sessions.begin(); it != udp_sessions.end();) {
             auto next = ++it;
             --it;
@@ -378,22 +377,15 @@ boost::asio::io_context &Service::service() {
 }
 
 void Service::reload_cert() {
-    if (config.run_type == Config::SERVER) {
-        Log::log_with_date_time("reloading certificate and private key. . . ", Log::WARN);
+    if (config.run_type == Config::RunType::SERVER) {
+        Log::log_with_date_time("reloading certificate and private key. . . ", Log::Level::WARN);
         ssl_context.use_certificate_chain_file(config.ssl.cert);
         ssl_context.use_private_key_file(config.ssl.key, context::pem);
         boost::system::error_code ec;
         socket_acceptor.cancel(ec);
         async_accept();
-        Log::log_with_date_time("certificate and private key reloaded", Log::WARN);
+        Log::log_with_date_time("certificate and private key reloaded", Log::Level::WARN);
     } else {
-        Log::log_with_date_time("cannot reload certificate and private key: wrong run_type", Log::ERROR);
-    }
-}
-
-Service::~Service() {
-    if (auth) {
-        delete auth;
-        auth = nullptr;
+        Log::log_with_date_time("cannot reload certificate and private key: wrong run_type", Log::Level::ERROR);
     }
 }

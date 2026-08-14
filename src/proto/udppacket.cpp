@@ -22,7 +22,7 @@ using namespace std;
 using namespace boost::asio::ip;
 
 bool UDPPacket::parse(const string &data, size_t &udp_packet_len) {
-    if (data.length() <= 0) {
+    if (data.empty()) {
         return false;
     }
     size_t address_len;
@@ -39,24 +39,24 @@ bool UDPPacket::parse(const string &data, size_t &udp_packet_len) {
     return true;
 }
 
-string UDPPacket::generate(const udp::endpoint &endpoint, const string &payload) {
+string UDPPacket::generate(const udp::endpoint &endpoint, string_view payload) {
     string ret = SOCKS5Address::generate(endpoint);
-    ret += char(uint8_t(payload.length() >> 8));
-    ret += char(uint8_t(payload.length() & 0xFF));
+    ret += static_cast<char>(uint8_t(payload.size() >> 8));
+    ret += static_cast<char>(uint8_t(payload.size() & 0xFF));
     ret += "\r\n";
-    ret += payload;
+    ret.append(payload);
     return ret;
 }
 
-string UDPPacket::generate(const string &domainname, uint16_t port, const string &payload) {
+string UDPPacket::generate(string_view domainname, uint16_t port, string_view payload) {
     string ret = "\x03";
-    ret += char(uint8_t(domainname.length()));
-    ret += domainname;
-    ret += char(uint8_t(port >> 8));
-    ret += char(uint8_t(port & 0xFF));
-    ret += char(uint8_t(payload.length() >> 8));
-    ret += char(uint8_t(payload.length() & 0xFF));
+    ret += static_cast<char>(uint8_t(domainname.length()));
+    ret.append(domainname);
+    ret += static_cast<char>(uint8_t(port >> 8));
+    ret += static_cast<char>(uint8_t(port & 0xFF));
+    ret += static_cast<char>(uint8_t(payload.size() >> 8));
+    ret += static_cast<char>(uint8_t(payload.size() & 0xFF));
     ret += "\r\n";
-    ret += payload;
+    ret.append(payload);
     return ret;
 }

@@ -27,7 +27,8 @@ int TrojanRequest::parse(const string &data) {
     }
     password = data.substr(0, first);
     payload = data.substr(first + 2);
-    if (payload.length() == 0 || (payload[0] != CONNECT && payload[0] != UDP_ASSOCIATE)) {
+    if (payload.empty() || (static_cast<uint8_t>(payload[0]) != static_cast<uint8_t>(Command::CONNECT) &&
+                            static_cast<uint8_t>(payload[0]) != static_cast<uint8_t>(Command::UDP_ASSOCIATE))) {
         return -1;
     }
     command = static_cast<Command>(payload[0]);
@@ -37,21 +38,18 @@ int TrojanRequest::parse(const string &data) {
         return -1;
     }
     payload = payload.substr(address_len + 3);
-    return data.length();
+    return static_cast<int>(data.length());
 }
 
-string TrojanRequest::generate(const string &password, const string &domainname, uint16_t port, bool tcp) {
-    string ret = password + "\r\n";
-    if (tcp) {
-        ret += '\x01';
-    } else {
-        ret += '\x03';
-    }
+string TrojanRequest::generate(string_view password, string_view domainname, uint16_t port, bool tcp) {
+    string ret(password);
+    ret += "\r\n";
+    ret += tcp ? '\x01' : '\x03';
     ret += '\x03';
-    ret += char(uint8_t(domainname.length()));
-    ret += domainname;
-    ret += char(uint8_t(port >> 8));
-    ret += char(uint8_t(port & 0xFF));
+    ret += static_cast<char>(static_cast<uint8_t>(domainname.length()));
+    ret.append(domainname);
+    ret += static_cast<char>(uint8_t(port >> 8));
+    ret += static_cast<char>(uint8_t(port & 0xFF));
     ret += "\r\n";
     return ret;
 }

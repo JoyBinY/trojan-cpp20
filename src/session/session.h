@@ -17,11 +17,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _SESSION_H_
-#define _SESSION_H_
+#pragma once
 
 #include <ctime>
 #include <memory>
+#include <array>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/udp.hpp>
 #include <boost/asio/steady_timer.hpp>
@@ -29,17 +29,15 @@
 
 class Session : public std::enable_shared_from_this<Session> {
 protected:
-    enum {
-        MAX_LENGTH = 8192,
-        SSL_SHUTDOWN_TIMEOUT = 30
-    };
+    static constexpr size_t MAX_LENGTH = 8192;
+    static constexpr int SSL_SHUTDOWN_TIMEOUT = 30;
     const Config &config;
-    uint8_t in_read_buf[MAX_LENGTH]{};
-    uint8_t out_read_buf[MAX_LENGTH]{};
-    uint8_t udp_read_buf[MAX_LENGTH]{};
-    uint64_t recv_len;
-    uint64_t sent_len;
-    time_t start_time{};
+    std::array<uint8_t, MAX_LENGTH> in_read_buf{};
+    std::array<uint8_t, MAX_LENGTH> out_read_buf{};
+    std::array<uint8_t, MAX_LENGTH> udp_read_buf{};
+    uint64_t recv_len = 0;
+    uint64_t sent_len = 0;
+    time_t start_time = 0;
     std::string out_write_buf;
     std::string udp_data_buf;
     boost::asio::ip::tcp::resolver resolver;
@@ -53,5 +51,3 @@ public:
     virtual void start() = 0;
     virtual ~Session();
 };
-
-#endif // _SESSION_H_

@@ -17,35 +17,34 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _FORWARDSESSION_H_
-#define _FORWARDSESSION_H_
+#pragma once
 
-#include "session.h"
+#include <string>
+#include <string_view>
 #include <boost/asio/ssl.hpp>
+#include "session.h"
 
 class ForwardSession : public Session {
 private:
-    enum Status {
+    enum class Status {
         CONNECT,
         FORWARD,
         DESTROY
     } status;
-    bool first_packet_recv;
+    bool first_packet_recv = false;
     boost::asio::ip::tcp::socket in_socket;
-    boost::asio::ssl::stream<boost::asio::ip::tcp::socket>out_socket;
+    boost::asio::ssl::stream<boost::asio::ip::tcp::socket> out_socket;
     void destroy();
     void in_async_read();
-    void in_async_write(const std::string &data);
-    void in_recv(const std::string &data);
+    void in_async_write(std::string_view data);
+    void in_recv(std::string_view data);
     void in_sent();
     void out_async_read();
-    void out_async_write(const std::string &data);
-    void out_recv(const std::string &data);
+    void out_async_write(std::string_view data);
+    void out_recv(std::string_view data);
     void out_sent();
 public:
     ForwardSession(const Config &config, boost::asio::io_context &io_context, boost::asio::ssl::context &ssl_context);
     boost::asio::ip::tcp::socket& accept_socket() override;
     void start() override;
 };
-
-#endif // _FORWARDSESSION_H_

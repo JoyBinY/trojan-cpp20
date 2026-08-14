@@ -17,31 +17,33 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _UDPFORWARDSESSION_H_
-#define _UDPFORWARDSESSION_H_
+#pragma once
 
-#include "session.h"
+#include <string>
+#include <string_view>
+#include <functional>
 #include <boost/asio/ssl.hpp>
 #include <boost/asio/steady_timer.hpp>
+#include "session.h"
 
 class UDPForwardSession : public Session {
 public:
-    typedef std::function<void(const boost::asio::ip::udp::endpoint&, const std::string&)> UDPWrite;
+    using UDPWrite = std::function<void(const boost::asio::ip::udp::endpoint&, const std::string&)>;
 private:
-    enum Status {
+    enum class Status {
         CONNECT,
         FORWARD,
         FORWARDING,
         DESTROY
     } status;
     UDPWrite in_write;
-    boost::asio::ssl::stream<boost::asio::ip::tcp::socket>out_socket;
+    boost::asio::ssl::stream<boost::asio::ip::tcp::socket> out_socket;
     boost::asio::steady_timer gc_timer;
     void destroy();
-    void in_recv(const std::string &data);
+    void in_recv(std::string_view data);
     void out_async_read();
-    void out_async_write(const std::string &data);
-    void out_recv(const std::string &data);
+    void out_async_write(std::string_view data);
+    void out_recv(std::string_view data);
     void out_sent();
     void timer_async_wait();
 public:
@@ -50,5 +52,3 @@ public:
     void start() override;
     bool process(const boost::asio::ip::udp::endpoint &endpoint, const std::string &data);
 };
-
-#endif // _UDPFORWARDSESSION_H_

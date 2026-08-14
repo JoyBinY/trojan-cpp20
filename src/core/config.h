@@ -17,65 +17,63 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _CONFIG_H_
-#define _CONFIG_H_
+#pragma once
 
 #include <cstdint>
 #include <map>
+#include <string>
+#include <string_view>
 #include <boost/property_tree/ptree.hpp>
 #include "log.h"
 
 class Config {
 public:
-    enum RunType {
+    enum class RunType {
         SERVER,
         CLIENT,
         FORWARD,
         NAT
     } run_type;
     std::string local_addr;
-    uint16_t local_port;
+    uint16_t local_port = 0;
     std::string remote_addr;
-    uint16_t remote_port;
+    uint16_t remote_port = 0;
     std::string target_addr;
-    uint16_t target_port;
+    uint16_t target_port = 0;
     std::map<std::string, std::string> password;
-    int udp_timeout;
-    Log::Level log_level;
-    class SSLConfig {
-    public:
-        bool verify;
-        bool verify_hostname;
+    int udp_timeout = 60;
+    Log::Level log_level = Log::Level::INFO;
+    struct SSLConfig {
+        bool verify = true;
+        bool verify_hostname = true;
         std::string cert;
         std::string key;
         std::string key_password;
         std::string cipher;
         std::string cipher_tls13;
-        bool prefer_server_cipher;
+        bool prefer_server_cipher = true;
         std::string sni;
         std::string alpn;
         std::map<std::string, uint16_t> alpn_port_override;
-        bool reuse_session;
-        bool session_ticket;
-        long session_timeout;
+        bool reuse_session = true;
+        bool session_ticket = false;
+        long session_timeout = 600;
         std::string plain_http_response;
         std::string curves;
         std::string dhparam;
     } ssl;
-    class TCPConfig {
-    public:
-        bool prefer_ipv4;
-        bool no_delay;
-        bool keep_alive;
-        bool reuse_port;
-        bool fast_open;
-        int fast_open_qlen;
+    struct TCPConfig {
+        bool prefer_ipv4 = false;
+        bool no_delay = true;
+        bool keep_alive = true;
+        bool reuse_port = false;
+        bool fast_open = false;
+        int fast_open_qlen = 20;
     } tcp;
-    class MySQLConfig {
-    public:
-        bool enabled;
+    struct MySQLConfig {
+        bool enabled = false;
         std::string server_addr;
-        uint16_t server_port;
+        uint16_t server_port = 3306;
         std::string database;
         std::string username;
         std::string password;
@@ -83,12 +81,10 @@ public:
         std::string cert;
         std::string ca;
     } mysql;
-    void load(const std::string &filename);
-    void populate(const std::string &JSON);
+    void load(std::string_view filename);
+    void populate(std::string_view JSON);
     bool sip003();
-    static std::string SHA224(const std::string &message);
+    [[nodiscard]] static std::string SHA224(std::string_view message);
 private:
     void populate(const boost::property_tree::ptree &tree);
 };
-
-#endif // _CONFIG_H_

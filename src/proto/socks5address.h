@@ -17,8 +17,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _SOCKS5ADDRESS_H_
-#define _SOCKS5ADDRESS_H_
+#pragma once
 
 #include <cstdint>
 #include <string>
@@ -26,15 +25,13 @@
 
 class SOCKS5Address {
 public:
-    enum AddressType {
+    enum class AddressType : uint8_t {
         IPv4 = 1,
         DOMAINNAME = 3,
         IPv6 = 4
     } address_type;
     std::string address;
-    uint16_t port;
+    uint16_t port = 0;
     bool parse(const std::string &data, size_t &address_len);
-    static std::string generate(const boost::asio::ip::udp::endpoint &endpoint);
+    [[nodiscard]] static std::string generate(const boost::asio::ip::udp::endpoint &endpoint);
 };
-
-#endif // _SOCKS5ADDRESS_H_

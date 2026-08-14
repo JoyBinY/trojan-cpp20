@@ -17,10 +17,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _SERVICE_H_
-#define _SERVICE_H_
+#pragma once
 
 #include <list>
+#include <memory>
+#include <array>
 #include <boost/version.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ssl.hpp>
@@ -30,18 +31,16 @@
 
 class Service {
 private:
-    enum {
-        MAX_LENGTH = 8192
-    };
+    static constexpr size_t MAX_LENGTH = 8192;
     const Config &config;
     boost::asio::io_context io_context;
     boost::asio::ip::tcp::acceptor socket_acceptor;
     boost::asio::ssl::context ssl_context;
-    Authenticator *auth;
+    std::unique_ptr<Authenticator> auth;
     std::string plain_http_response;
     boost::asio::ip::udp::socket udp_socket;
-    std::list<std::weak_ptr<UDPForwardSession> > udp_sessions;
-    uint8_t udp_read_buf[MAX_LENGTH]{};
+    std::list<std::weak_ptr<UDPForwardSession>> udp_sessions;
+    std::array<uint8_t, MAX_LENGTH> udp_read_buf{};
     boost::asio::ip::udp::endpoint udp_recv_endpoint;
     void async_accept();
     void udp_async_read();
@@ -51,7 +50,4 @@ public:
     void stop();
     boost::asio::io_context &service();
     void reload_cert();
-    ~Service();
 };
-
-#endif // _SERVICE_H_

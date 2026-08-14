@@ -17,16 +17,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _VERSION_H_
-#define _VERSION_H_
+#pragma once
 
 #include <string>
 
 class Version {
 private:
-    const static std::string version;
+    static constexpr std::string_view version = "1.16.0";
 public:
-    static std::string get_version();
+    [[nodiscard]] static std::string get_version();
 };
-
-#endif // _VERSION_H_

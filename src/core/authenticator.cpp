@@ -20,13 +20,14 @@
 #include "authenticator.h"
 #include <cstdlib>
 #include <stdexcept>
+#include <string>
 using namespace std;
 
 #ifdef ENABLE_MYSQL
 
 Authenticator::Authenticator(const Config &config) {
     mysql_init(&con);
-    Log::log_with_date_time("connecting to MySQL server " + config.mysql.server_addr + ':' + to_string(config.mysql.server_port), Log::INFO);
+    Log::log_with_date_time("connecting to MySQL server " + config.mysql.server_addr + ':' + to_string(config.mysql.server_port), Log::Level::INFO);
     if (!config.mysql.ca.empty()) {
         if (!config.mysql.key.empty() && !config.mysql.cert.empty()) {
             mysql_ssl_set(&con, config.mysql.key.c_str(), config.mysql.cert.c_str(), config.mysql.ca.c_str(), nullptr, nullptr);
@@ -43,20 +44,21 @@ Authenticator::Authenticator(const Config &config) {
     }
     bool reconnect = true;
     mysql_options(&con, MYSQL_OPT_RECONNECT, &reconnect);
-    Log::log_with_date_time("connected to MySQL server", Log::INFO);
+    Log::log_with_date_time("connected to MySQL server", Log::Level::INFO);
 }
 
-bool Authenticator::auth(const string &password) {
+bool Authenticator::auth(string_view password) {
     if (!is_valid_password(password)) {
         return false;
     }
-    if (mysql_query(&con, ("SELECT quota, download + upload FROM users WHERE password = '" + password + '\'').c_str())) {
-        Log::log_with_date_time(mysql_error(&con), Log::ERROR);
+    string pw(password);
+    if (mysql_query(&con, ("SELECT quota, download + upload FROM users WHERE password = '" + pw + '\'').c_str())) {
+        Log::log_with_date_time(mysql_error(&con), Log::Level::ERROR);
         return false;
     }
     MYSQL_RES *res = mysql_store_result(&con);
     if (res == nullptr) {
-        Log::log_with_date_time(mysql_error(&con), Log::ERROR);
+        Log::log_with_date_time(mysql_error(&con), Log::Level::ERROR);
         return false;
     }
     MYSQL_ROW row = mysql_fetch_row(res);
@@ -71,27 +73,28 @@ bool Authenticator::auth(const string &password) {
         return true;
     }
     if (used >= quota) {
-        Log::log_with_date_time(password + " ran out of quota", Log::WARN);
+        Log::log_with_date_time(pw + " ran out of quota", Log::Level::WARN);
         return false;
     }
     return true;
 }
 
-void Authenticator::record(const string &password, uint64_t download, uint64_t upload) {
+void Authenticator::record(string_view password, uint64_t download, uint64_t upload) {
     if (!is_valid_password(password)) {
         return;
     }
-    if (mysql_query(&con, ("UPDATE users SET download = download + " + to_string(download) + ", upload = upload + " + to_string(upload) + " WHERE password = '" + password + '\'').c_str())) {
-        Log::log_with_date_time(mysql_error(&con), Log::ERROR);
+    string pw(password);
+    if (mysql_query(&con, ("UPDATE users SET download = download + " + to_string(download) + ", upload = upload + " + to_string(upload) + " WHERE password = '" + pw + '\'').c_str())) {
+        Log::log_with_date_time(mysql_error(&con), Log::Level::ERROR);
     }
 }
 
-bool Authenticator::is_valid_password(const string &password) {
+bool Authenticator::is_valid_password(string_view password) {
     if (password.size() != PASSWORD_LENGTH) {
         return false;
     }
-    for (size_t i = 0; i < PASSWORD_LENGTH; ++i) {
-        if (!((password[i] >= '0' && password[i] <= '9') || (password[i] >= 'a' && password[i] <= 'f'))) {
+    for (char c : password) {
+        if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'))) {
             return false;
         }
     }
@@ -105,9 +108,9 @@ Authenticator::~Authenticator() {
 #else // ENABLE_MYSQL
 
 Authenticator::Authenticator(const Config&) {}
-bool Authenticator::auth(const string&) { return true; }
-void Authenticator::record(const string&, uint64_t, uint64_t) {}
-bool Authenticator::is_valid_password(const string&) { return true; }
+bool Authenticator::auth(string_view) { return true; }
+void Authenticator::record(string_view, uint64_t, uint64_t) {}
+bool Authenticator::is_valid_password(string_view) { return true; }
 Authenticator::~Authenticator() {}
 
 #endif // ENABLE_MYSQL

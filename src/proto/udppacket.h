@@ -17,19 +17,19 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _UDPPACKET_H_
-#define _UDPPACKET_H_
+#pragma once
 
+#include <cstdint>
+#include <string>
+#include <string_view>
 #include "socks5address.h"
 
 class UDPPacket {
 public:
     SOCKS5Address address;
-    uint16_t length;
+    uint16_t length = 0;
     std::string payload;
     bool parse(const std::string &data, size_t &udp_packet_len);
-    static std::string generate(const boost::asio::ip::udp::endpoint &endpoint, const std::string &payload);
-    static std::string generate(const std::string &domainname, uint16_t port, const std::string &payload);
+    [[nodiscard]] static std::string generate(const boost::asio::ip::udp::endpoint &endpoint, std::string_view payload);
+    [[nodiscard]] static std::string generate(std::string_view domainname, uint16_t port, std::string_view payload);
 };
-
-#endif // _UDPPACKET_H_
