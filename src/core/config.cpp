@@ -19,7 +19,6 @@
 
 #include "config.h"
 #include <cstdlib>
-#include <sstream>
 #include <stdexcept>
 #include <array>
 #include <fstream>
